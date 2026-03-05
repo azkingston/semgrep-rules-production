@@ -2,17 +2,17 @@ rules:
   - id: autogen-path-traversal-ghsa-w75w-9qv4-j5xj
     version: 1.0.0
     message: |
-      Using `os.path.commonprefix()` for path validation can lead to path traversal vulnerabilities. 
-      `commonprefix()` compares paths character-by-character rather than by path components, allowing 
-      attackers to write files to sibling directories with matching prefixes (e.g., `/tmp/packages` 
-      vs `/tmp/packagesevil/`). Use `os.path.commonpath()` instead, which correctly compares paths 
-      by their components. Fix: Replace `os.path.commonprefix($ARGS)` with `os.path.commonpath($ARGS)`.
+      Potential path traversal vulnerability detected. Using `os.path.commonprefix()` for path validation is unsafe as it compares paths character-by-character rather than by path components. This allows attackers to write files to sibling directories with matching name prefixes. Replace with `os.path.commonpath()` which correctly compares paths by their components.
+      
+      Fix: Replace `os.path.commonprefix($PATHS)` with `os.path.commonpath($PATHS)`
     metadata:
       category: security
       technology:
         - python
       cwe:
         - "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      owasp:
+        - A01:2021 - Broken Access Control
       references:
         - https://github.com/advisories/GHSA-w75w-9qv4-j5xj
         - https://cwe.mitre.org/data/definitions/22.html
@@ -23,33 +23,38 @@ rules:
     severity: WARNING
     languages:
       - python
-    pattern-either:
-      - pattern: |
-          if os.path.commonprefix([$TARGET_DIR, $EXTRACTED_PATH]) != $TARGET_DIR:
+    patterns:
+      - pattern-either:
+          - pattern: os.path.commonprefix($PATHS)
+          - pattern: |
+              import os
               ...
-      - pattern: |
-          if os.path.commonprefix([$EXTRACTED_PATH, $TARGET_DIR]) != $TARGET_DIR:
+              os.path.commonprefix($PATHS)
+          - pattern: |
+              from os.path import commonprefix
               ...
-      - pattern: |
-          $VAR = os.path.commonprefix([..., ...])
-          ...
-          if $VAR != $TARGET:
+              commonprefix($PATHS)
+          - pattern: |
+              from os import path
               ...
-      - pattern: |
-          os.path.commonprefix([..., ...]) == $TARGET
-      - pattern: |
-          os.path.commonprefix([..., ...]) != $TARGET
-      - patterns:
-        - pattern: os.path.commonprefix($ARGS)
-        - pattern-inside: |
-            def $FUNC(...):
+              path.commonprefix($PATHS)
+    pattern-inside:
+      - pattern-either:
+          - pattern: |
+              def $FUNC(...):
                 ...
-                os.path.commonprefix($ARGS)
+                if $CONDITION:
+                  ...
+          - pattern: |
+              def $FUNC(...):
                 ...
-        - metavariable-regex:
-            metavariable: $FUNC
-            regex: .*(extract|unpack|decompress|archive).*
-    # Test cases:
-    # True positive: if os.path.commonprefix([target_dir, extracted_path]) != target_dir: raise Exception("Path traversal")
-    # False positive: prefix = os.path.commonprefix(["file1.txt", "file2.txt"])  # Finding common string prefix, not path validation
-    # Edge case: safe_path = os.path.commonprefix([base_dir, user_path]) if validate_path else user_path
+                $VAR = ...
+                ...
+          - pattern: |
+              def safe_extract(...):
+                ...
+          - pattern: |
+              def extract(...):
+                ...
+    fix: |
+      os.path.commonpath($PATHS)
