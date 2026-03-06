@@ -1,0 +1,59 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-5r2p-pjr8-7fh7
+# Rule:      autogen-remote-code-execution-rce-via-eval-misuse-ghsa-5r2p-pjr8-7fh7.yaml
+# Language:  python
+# Grade:     F (0/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: 0/2 caught
+
+# TP-1: unsanitized user input passed directly to search_hub query parameter
+# Accuracy result: MISS ❌
+from sagemaker.jumpstart import search_hub
+user_query = request.get_json()['query']
+# ruleid: autogen-remote-code-execution-rce-via-eval-misuse-ghsa-5r2p-pjr8-7fh7
+results = search_hub(query=user_query)
+
+# TP-2: direct user input from stdin passed to search_hub without validation
+# Accuracy result: MISS ❌
+import sagemaker.jumpstart as js
+malicious_input = input('Enter search query: ')
+# ruleid: autogen-remote-code-execution-rce-via-eval-misuse-ghsa-5r2p-pjr8-7fh7
+models = js.search_hub(query=malicious_input)
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: 2/2 clean
+
+# FP-1: hardcoded safe query string to search_hub
+# Accuracy result: CLEAN ✅
+# ok: from sagemaker.jumpstart import search_hub
+# ok: results = search_hub(query='object_detection AND framework:pytorch')
+
+# FP-2: query from predefined safe list
+# Accuracy result: CLEAN ✅
+# ok: import sagemaker.jumpstart as js
+# ok: allowed_queries = ['image_classification', 'text_generation']
+# ok: query = allowed_queries[0]
+# ok: models = js.search_hub(query=query)
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: environment variable input - could be controlled by attacker depending on deployment context → SILENT
+# from sagemaker.jumpstart import search_hub
+# query = os.environ.get('SEARCH_QUERY', 'default')
+# results = search_hub(query=query)
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   F 🔴
+# Score:   0/100
+# TP rate: 0% (0/2)
+# FP rate: 0% (0/2 false alarms)
+# Edges:   0/1 fired
