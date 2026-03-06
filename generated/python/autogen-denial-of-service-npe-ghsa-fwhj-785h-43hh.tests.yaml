@@ -1,0 +1,69 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-fwhj-785h-43hh
+# Rule:      autogen-denial-of-service-npe-ghsa-fwhj-785h-43hh.yaml
+# Language:  python
+# Grade:     F (0/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: undefined/undefined caught
+
+# TP-1: Direct dereference of Binding without null check causing NPE
+# Accuracy result: N/A
+def kill_action(execution_tracking_id):
+    log_entry = get_execution_log(execution_tracking_id)
+    action_name = log_entry.Binding.Action.name
+# ruleid: autogen-denial-of-service-npe-ghsa-fwhj-785h-43hh
+    kill_process(action_name)
+
+# TP-2: Accessing Action through potentially null Binding field
+# Accuracy result: N/A
+def restart_action(tracking_id):
+    exec_log = executor.get_log_entry(tracking_id)
+    if exec_log:
+        action_id = exec_log.Binding.Action.id
+# ruleid: autogen-denial-of-service-npe-ghsa-fwhj-785h-43hh
+        restart_process(action_id)
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: NaN/undefined clean
+
+# FP-1: Proper null checking before dereferencing Binding
+# Accuracy result: N/A
+# ok: def kill_action_safe(execution_tracking_id):
+# ok:     log_entry = get_execution_log(execution_tracking_id)
+# ok:     if log_entry.Binding and log_entry.Binding.Action:
+# ok:         action_name = log_entry.Binding.Action.name
+# ok:         kill_process(action_name)
+
+# FP-2: Safe attribute access with null validation
+# Accuracy result: N/A
+# ok: def restart_action_safe(tracking_id):
+# ok:     exec_log = executor.get_log_entry(tracking_id)
+# ok:     binding = getattr(exec_log, 'Binding', None)
+# ok:     if binding and hasattr(binding, 'Action'):
+# ok:         restart_process(binding.Action.id)
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: Exception handling may mask NPE but still vulnerable to panic before catch → N/A
+# def process_action(tracking_id):
+#     log_entry = get_execution_log(tracking_id)
+#     try:
+#         action = log_entry.Binding.Action
+#         execute(action)
+#     except AttributeError:
+#         pass
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   F 🔴
+# Score:   0/100
+# TP rate: 0% (undefined/undefined)
+# FP rate: 0% (undefined/undefined false alarms)
