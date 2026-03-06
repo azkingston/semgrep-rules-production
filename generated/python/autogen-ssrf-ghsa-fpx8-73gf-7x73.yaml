@@ -1,11 +1,11 @@
 # ═══════════════════════════════════════════════════
 # AutoGen Rule — GHSA-fpx8-73gf-7x73
 # Language:  python
-# Grade:     C (50/100) 🟠
-# TP Rate:   50%
+# Grade:     A (100/100) 🟢
+# TP Rate:   100%
 # FP Rate:   0%
-# Attempts:  2 of 3
-# Generated: 2026-03-06T07:59:06.570Z
+# Attempts:  1 of 3
+# Generated: 2026-03-06T08:39:54.761Z
 # ═══════════════════════════════════════════════════
 rules:
   - id: autogen-ssrf-ghsa-fpx8-73gf-7x73
@@ -19,7 +19,7 @@ rules:
       likelihood: HIGH
       impact: HIGH
       references:
-        - "https://github.com/advisories/GHSA-fpx8-73gf-7x73"
+        - "https://github.com/makeplane/plane/security/advisories/GHSA-fpx8-73gf-7x73"
         - "https://cwe.mitre.org/data/definitions/918.html"
         - "https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/"
     patterns:
@@ -44,6 +44,19 @@ rules:
                   if $IP.is_loopback:
                       raise $EXCEPTION(...)
                   ...
+          - pattern: |
+              def $FUNC(...):
+                  ...
+                  $IP = ipaddress.ip_address($URL)
+                  ...
+                  if $IP.is_loopback:
+                      raise $EXCEPTION(...)
+                  ...
+          - pattern: |
+              $IP = ipaddress.ip_address(...)
+              ...
+              if $IP.is_loopback:
+                  ...
       - pattern-inside: |
           def $FUNC(...):
               ...
@@ -63,4 +76,10 @@ rules:
               ...
       - pattern-not-inside: |
           if $IP.is_link_local or $IP.is_loopback:
+              ...
+      - pattern-not-inside: |
+          if $IP.is_private or $IP.is_link_local or $IP.is_loopback:
+              ...
+      - pattern-not-inside: |
+          if $IP.is_loopback and not ($IP.is_private or $IP.is_link_local):
               ...
