@@ -1,0 +1,69 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-wjpw-4j6x-6rwh
+# Rule:      autogen-uri-parsing-issue-ghsa-wjpw-4j6x-6rwh.yaml
+# Language:  python
+# Grade:     F (0/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: undefined/undefined caught
+
+# TP-1: URI parsing inconsistency allows security bypass due to delimiter priority issue
+# Accuracy result: N/A
+from org.eclipse.jetty.http import HttpURI
+uri = HttpURI('http://normal.com/#@vulndetector.com')
+host = uri.getHost()
+if host != 'normal.com':
+    bypass_security_check()
+# ruleid: autogen-uri-parsing-issue-ghsa-wjpw-4j6x-6rwh
+    process_request(uri)
+
+# TP-2: Host validation bypass possible with malformed URIs like 'http://trusted.com/?@malicious.com'
+# Accuracy result: N/A
+import org.eclipse.jetty.http.HttpURI as HttpURI
+user_uri = request.get_parameter('redirect_url')
+parsed_uri = HttpURI(user_uri)
+allowed_hosts = ['trusted.com', 'safe.com']
+if parsed_uri.getHost() in allowed_hosts:
+# ruleid: autogen-uri-parsing-issue-ghsa-wjpw-4j6x-6rwh
+    redirect_user(user_uri)
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: NaN/undefined clean
+
+# FP-1: Valid URI parsing with proper validation
+# Accuracy result: N/A
+# ok: from org.eclipse.jetty.http import HttpURI
+# ok: uri = HttpURI('https://example.com/path')
+# ok: host = uri.getHost()
+# ok: if host == 'example.com':
+# ok:     process_request()
+
+# FP-2: Static URI usage without user input or security implications
+# Accuracy result: N/A
+# ok: import org.eclipse.jetty.http.HttpURI as HttpURI
+# ok: static_uri = 'https://api.internal.com/endpoint'
+# ok: parsed = HttpURI(static_uri)
+# ok: response = make_request(parsed.toString())
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: Configuration-driven URI parsing - may be safe if config is trusted but could be vulnerable if config contains malformed URIs → N/A
+# from org.eclipse.jetty.http import HttpURI
+# config_uri = get_config_value('service_endpoint')
+# parsed_uri = HttpURI(config_uri)
+# if validate_host_against_policy(parsed_uri.getHost()):
+#     connect_to_service(parsed_uri)
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   F 🔴
+# Score:   0/100
+# TP rate: 0% (undefined/undefined)
+# FP rate: 0% (undefined/undefined false alarms)
