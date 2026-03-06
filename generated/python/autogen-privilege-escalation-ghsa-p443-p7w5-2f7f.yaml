@@ -1,0 +1,115 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-p443-p7w5-2f7f
+# Language:  python
+# Grade:     F (0/100) 🔴
+# TP Rate:   0%
+# FP Rate:   0%
+# Attempts:  1 of 3
+# Generated: 2026-03-06T08:45:19.594Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-privilege-escalation-ghsa-p443-p7w5-2f7f
+    message: "Privilege escalation vulnerability detected: RestartAction creates new internal requests without preserving original caller's authentication headers or cookies. When passed to StartAction, authentication resolver falls back to guest user, potentially granting broader permissions than the authenticated caller. This allows low-privileged users to bypass ACL restrictions and execute unauthorized actions. Fix by preserving authentication context when creating new requests or explicitly validating permissions before action execution."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cve: GHSA-p443-p7w5-2f7f
+      cwe: "CWE-269: Improper Privilege Management"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+      references:
+        - https://github.com/OliveTin/OliveTin/security/advisories/GHSA-p443-p7w5-2f7f
+    pattern-either:
+      - patterns:
+          - pattern: |
+              def restart_action($CTX, $REQ, ...):
+                  ...
+                  $EXEC_REQ_LOG_ENTRY = $EXECUTOR.get_log_entry($TRACKING_ID)
+                  ...
+                  return start_action($CTX, {
+                      "binding_id": $EXEC_REQ_LOG_ENTRY.get_binding_id(),
+                      "unique_tracking_id": $REQ.get("execution_tracking_id"),
+                      ...
+                  })
+          - pattern-not-inside: |
+              def restart_action(...):
+                  ...
+                  $USER = user_from_api_call($CTX, $REQ, ...)
+                  ...
+                  if not is_allowed_exec($USER, ...):
+                      ...
+                  ...
+      - patterns:
+          - pattern: |
+              def restart_action($CTX, $REQ, ...):
+                  ...
+                  $EXEC_REQ_LOG_ENTRY = $EXECUTOR.get_log_entry($TRACKING_ID)
+                  ...
+                  $NEW_REQUEST = {
+                      "binding_id": $EXEC_REQ_LOG_ENTRY.get_binding_id(),
+                      "unique_tracking_id": $REQ.get("execution_tracking_id"),
+                      ...
+                  }
+                  ...
+                  return start_action($CTX, $NEW_REQUEST)
+          - pattern-not-inside: |
+              def restart_action(...):
+                  ...
+                  $NEW_REQUEST["headers"] = $REQ.get("headers", {})
+                  $NEW_REQUEST["cookies"] = $REQ.get("cookies", {})
+                  ...
+      - patterns:
+          - pattern: |
+              def restart_action(...):
+                  ...
+                  $NEW_REQ = create_request({
+                      "binding_id": $EXEC_REQ_LOG_ENTRY.get_binding_id(),
+                      "unique_tracking_id": $TRACKING_ID,
+                      ...
+                  })
+                  ...
+                  return start_action($CTX, $NEW_REQ)
+          - pattern-not-inside: |
+              def restart_action(...):
+                  ...
+                  $NEW_REQ = create_request_with_auth($REQ, ...)
+                  ...
+      - patterns:
+          - pattern: |
+              def restart_action(...):
+                  ...
+                  return start_action($CTX, StartActionRequest(
+                      binding_id=$EXEC_REQ_LOG_ENTRY.get_binding_id(),
+                      unique_tracking_id=$TRACKING_ID,
+                      ...
+                  ))
+          - pattern-not-inside: |
+              def restart_action(...):
+                  ...
+                  $USER = user_from_api_call($CTX, $REQ, ...)
+                  if not $USER.has_permission("exec"):
+                      ...
+                  ...
+      - patterns:
+          - pattern: |
+              def $RESTART_FUNC(...):
+                  ...
+                  $EXEC_REQ_LOG_ENTRY = get_execution_log_entry($TRACKING_ID)
+                  ...
+                  return $START_FUNC($CTX, {
+                      "binding_id": $EXEC_REQ_LOG_ENTRY.binding_id,
+                      "unique_tracking_id": $TRACKING_ID
+                  })
+          - metavariable-regex:
+              metavariable: $RESTART_FUNC
+              regex: .*restart.*action.*
+          - metavariable-regex:
+              metavariable: $START_FUNC
+              regex: .*start.*action.*
+          - pattern-not-inside: |
+              def $RESTART_FUNC(...):
+                  ...
+                  if not check_permissions($USER, ...):
+                      ...
+                  ...
