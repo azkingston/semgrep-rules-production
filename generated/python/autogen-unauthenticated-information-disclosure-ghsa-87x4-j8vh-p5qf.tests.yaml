@@ -1,0 +1,96 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-87x4-j8vh-p5qf
+# Rule:      autogen-unauthenticated-information-disclosure-ghsa-87x4-j8vh-p5qf.yaml
+# Language:  python
+# Grade:     F (0/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: 0/2 caught
+
+# TP-1: Vulnerable API endpoint with AllowAny permission exposing workspace member information
+# Accuracy result: MISS ❌
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+
+class WorkspaceMembersView(APIView):
+    permission_classes = [AllowAny]
+    
+    def get(self, request, workspace_slug):
+        members = WorkspaceMember.objects.filter(workspace__slug=workspace_slug)
+# ruleid: autogen-unauthenticated-information-disclosure-ghsa-87x4-j8vh-p5qf
+        return Response([{'email': m.user.email, 'role': m.role} for m in members])
+
+# TP-2: Vulnerable ModelViewSet with AllowAny permission exposing project member data
+# Accuracy result: MISS ❌
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.permissions import AllowAny
+
+class ProjectMembersViewSet(ModelViewSet):
+    permission_classes = (AllowAny,)
+    serializer_class = ProjectMemberSerializer
+    
+    def get_queryset(self):
+        return ProjectMember.objects.filter(
+            project__workspace__slug=self.kwargs['workspace_slug'],
+            project_id=self.kwargs['project_id']
+# ruleid: autogen-unauthenticated-information-disclosure-ghsa-87x4-j8vh-p5qf
+        )
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: 2/2 clean
+
+# FP-1: Safe API endpoint with proper authentication required
+# Accuracy result: CLEAN ✅
+# ok: from rest_framework.views import APIView
+# ok: from rest_framework.permissions import IsAuthenticated
+# ok: from rest_framework.response import Response
+# ok: 
+# ok: class WorkspaceMembersView(APIView):
+# ok:     permission_classes = [IsAuthenticated]
+# ok:     
+# ok:     def get(self, request, workspace_slug):
+# ok:         members = WorkspaceMember.objects.filter(workspace__slug=workspace_slug)
+# ok:         return Response([{'email': m.user.email, 'role': m.role} for m in members])
+
+# FP-2: Safe ViewSet with proper authentication and admin permissions
+# Accuracy result: CLEAN ✅
+# ok: from rest_framework.viewsets import ModelViewSet
+# ok: from rest_framework.permissions import IsAuthenticated, IsAdminUser
+# ok: 
+# ok: class WorkspaceMembersViewSet(ModelViewSet):
+# ok:     permission_classes = [IsAuthenticated, IsAdminUser]
+# ok:     
+# ok:     def get_queryset(self):
+# ok:         return WorkspaceMember.objects.filter(
+# ok:             workspace__slug=self.kwargs['workspace_slug']
+# ok:         )
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: AllowAny permission but only exposing non-sensitive workspace info, not member data - may be legitimate public endpoint → SILENT
+# from rest_framework.views import APIView
+# from rest_framework.permissions import AllowAny
+# from rest_framework.response import Response
+# 
+# class WorkspacePublicInfoView(APIView):
+#     permission_classes = [AllowAny]
+#     
+#     def get(self, request, workspace_slug):
+#         workspace = Workspace.objects.get(slug=workspace_slug)
+#         return Response({'name': workspace.name, 'description': workspace.description})
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   F 🔴
+# Score:   0/100
+# TP rate: 0% (0/2)
+# FP rate: 0% (0/2 false alarms)
+# Edges:   0/1 fired
