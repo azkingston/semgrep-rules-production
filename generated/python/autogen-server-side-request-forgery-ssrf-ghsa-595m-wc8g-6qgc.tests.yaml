@@ -1,0 +1,120 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-595m-wc8g-6qgc
+# Rule:      autogen-server-side-request-forgery-ssrf-ghsa-595m-wc8g-6qgc.yaml
+# Language:  python
+# Grade:     F (0/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: undefined/undefined caught
+
+# TP-1: SSRF via redirect - validates initial URL but follows redirects blindly
+# Accuracy result: N/A
+import requests
+
+def import_document_via_url(url):
+    # Initial URL validation
+    if not is_ssrf_safe_url(url):
+        raise ValueError('Invalid URL')
+    
+    # Vulnerable: follows redirects without validation
+    response = requests.get(url)
+    return response.content
+
+def is_ssrf_safe_url(url):
+    # Only validates initial URL, not redirect targets
+# ruleid: autogen-server-side-request-forgery-ssrf-ghsa-595m-wc8g-6qgc
+    return not any(host in url for host in ['localhost', '127.0.0.1'])
+
+# TP-2: Missing Docker-specific hostname validation allowing host.docker.internal access
+# Accuracy result: N/A
+import urllib.request
+import urllib.parse
+
+def fetch_external_content(user_url):
+    parsed = urllib.parse.urlparse(user_url)
+    # Validates hostname but misses host.docker.internal
+    blocked_hosts = ['localhost', '127.0.0.1', '169.254.169.254']
+    if parsed.hostname in blocked_hosts:
+        raise Exception('Blocked host')
+    
+    # Vulnerable: urllib follows redirects to host.docker.internal
+    with urllib.request.urlopen(user_url) as response:
+# ruleid: autogen-server-side-request-forgery-ssrf-ghsa-595m-wc8g-6qgc
+        return response.read()
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: NaN/undefined clean
+
+# FP-1: Safe implementation that disables redirects and validates URLs properly
+# Accuracy result: N/A
+# ok: import requests
+# ok: 
+# ok: def safe_url_fetch(url):
+# ok:     # Proper SSRF protection with redirect validation
+# ok:     session = requests.Session()
+# ok:     session.max_redirects = 0  # Disable redirects
+# ok:     
+# ok:     if not validate_url_comprehensive(url):
+# ok:         raise ValueError('Invalid URL')
+# ok:     
+# ok:     response = session.get(url, allow_redirects=False)
+# ok:     return response.content
+# ok: 
+# ok: def validate_url_comprehensive(url):
+# ok:     blocked = ['localhost', '127.0.0.1', 'host.docker.internal']
+# ok:     return not any(host in url for host in blocked)
+
+# FP-2: Secure implementation with redirect hook validation
+# Accuracy result: N/A
+# ok: import requests
+# ok: 
+# ok: def secure_document_import(url):
+# ok:     # Validates both initial and redirect URLs
+# ok:     def check_redirect(resp, *args, **kwargs):
+# ok:         if not is_safe_url(resp.url):
+# ok:             raise requests.RequestException('Unsafe redirect target')
+# ok:     
+# ok:     session = requests.Session()
+# ok:     session.hooks['response'] = check_redirect
+# ok:     
+# ok:     if not is_safe_url(url):
+# ok:         raise ValueError('Invalid URL')
+# ok:     
+# ok:     return session.get(url).content
+# ok: 
+# ok: def is_safe_url(url):
+# ok:     blocked = ['localhost', '127.0.0.1', 'host.docker.internal', '169.254.169.254']
+# ok:     return not any(host in url for host in blocked)
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: Custom redirect handler - vulnerability depends on validate_redirect_target implementation which is not visible → N/A
+# import requests
+# 
+# def import_with_custom_client(url):
+#     # Custom redirect handler - behavior depends on implementation
+#     class CustomRedirectHandler:
+#         def __init__(self, max_redirects=5):
+#             self.max_redirects = max_redirects
+#         
+#         def handle_redirect(self, response):
+#             # Edge case: custom validation logic not shown
+#             return self.validate_redirect_target(response.headers.get('Location'))
+#     
+#     handler = CustomRedirectHandler()
+#     response = requests.get(url, stream=True)
+#     return response.content
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   F 🔴
+# Score:   0/100
+# TP rate: 0% (undefined/undefined)
+# FP rate: 0% (undefined/undefined false alarms)
