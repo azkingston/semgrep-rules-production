@@ -1,0 +1,75 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-gq2m-77hf-vwgh
+# Rule:      autogen-session-management-flaw-ghsa-gq2m-77hf-vwgh.yaml
+# Language:  python
+# Grade:     A (100/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: 2/2 caught
+
+# TP-1: logout only clears cookie without invalidating server-side session
+# Accuracy result: PASS ✅
+def logout_user(session_id, response):
+    # Only clear client-side cookie
+    response.set_cookie('session_id', '', expires=0)
+    # Session remains in server storage
+# ruleid: autogen-session-management-flaw-ghsa-gq2m-77hf-vwgh
+    return {'status': 'logged_out'}
+
+# TP-2: OliveTin-style logout that fails to remove session from storage
+# Accuracy result: PASS ✅
+class SessionManager:
+    def logout(self, sid, response):
+        cookie = http.cookies.SimpleCookie()
+        cookie['olivetin-sid-local'] = ''
+        cookie['olivetin-sid-local']['expires'] = 'Thu, 01 Jan 1970 00:00:00 GMT'
+        response.headers['Set-Cookie'] = cookie.output(header='')
+# ruleid: autogen-session-management-flaw-ghsa-gq2m-77hf-vwgh
+        # self.sessions[sid] still exists and valid
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: 2/2 clean
+
+# FP-1: proper logout that invalidates both client and server sessions
+# Accuracy result: CLEAN ✅
+# ok: def logout_user(session_id, response):
+# ok:     # Clear client-side cookie
+# ok:     response.set_cookie('session_id', '', expires=0)
+# ok:     # Properly invalidate server-side session
+# ok:     if session_id in active_sessions:
+# ok:         del active_sessions[session_id]
+# ok:     return {'status': 'logged_out'}
+
+# FP-2: comprehensive logout that clears all session data
+# Accuracy result: CLEAN ✅
+# ok: class SecureSessionManager:
+# ok:     def logout(self, sid, response):
+# ok:         response.delete_cookie('session_cookie')
+# ok:         # Remove from session storage
+# ok:         self.session_store.pop(sid, None)
+# ok:         self.redis_client.delete(f'session:{sid}')
+# ok:         return True
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: asynchronous session cleanup - may be vulnerable if cleanup fails or is delayed → FIRES
+# def logout_user(session_id, response):
+#     response.set_cookie('session_id', '', expires=0)
+#     # Session cleanup happens in background task
+#     cleanup_queue.put(session_id)
+#     return {'status': 'logged_out'}
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   A 🟢
+# Score:   100/100
+# TP rate: 100% (2/2)
+# FP rate: 0% (0/2 false alarms)
+# Edges:   1/1 fired
