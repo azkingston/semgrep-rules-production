@@ -1,0 +1,109 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-g7hc-96xr-gvvx
+# Rule:      autogen-smtp-command-injection-crlf-injection-ghsa-g7hc-96xr-gvvx.yaml
+# Language:  python
+# Grade:     F (0/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: undefined/undefined caught
+
+# TP-1: CRLF injection in quoted local-part of MailboxAddress
+# Accuracy result: N/A
+from MimeKit import MailboxAddress
+import re
+
+def create_mailbox(user_input):
+    # Vulnerable: accepts CRLF in quoted local-part
+    quoted_local = f'"{user_input}"@example.com'
+    mailbox = MailboxAddress('', quoted_local)
+    return mailbox
+
+# Attacker input with CRLF injection
+malicious_input = 'test\r\nRCPT TO:<victim@evil.com>\r\nDATA\r\n.\r\n'
+# ruleid: autogen-smtp-command-injection-crlf-injection-ghsa-g7hc-96xr-gvvx
+mailbox = create_mailbox(malicious_input)
+
+# TP-2: SMTP command injection via user-controlled MailboxAddress in email sending
+# Accuracy result: N/A
+import MimeKit
+from MailKit.Net.Smtp import SmtpClient
+
+def send_email(from_address, to_address, subject, body):
+    # Vulnerable: user-controlled from_address with potential CRLF
+    envelope_from = MimeKit.MailboxAddress('', from_address)
+    envelope_to = MimeKit.MailboxAddress('', to_address)
+    
+    message = MimeKit.MimeMessage()
+    message.From.Add(envelope_from)
+    message.To.Add(envelope_to)
+    message.Subject = subject
+    message.Body = MimeKit.TextPart('plain') { Text = body }
+    
+    with SmtpClient() as client:
+        client.Send(message, envelope_from, [envelope_to])
+
+# Vulnerable usage with CRLF injection
+attacker_email = '"evil\r\nRSET\r\nMAIL FROM:<attacker@evil.com>\r\n"@example.com'
+# ruleid: autogen-smtp-command-injection-crlf-injection-ghsa-g7hc-96xr-gvvx
+send_email(attacker_email, 'victim@target.com', 'Test', 'Hello')
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: NaN/undefined clean
+
+# FP-1: hardcoded safe email address without user input
+# Accuracy result: N/A
+# ok: from MimeKit import MailboxAddress
+# ok: 
+# ok: def create_safe_mailbox():
+# ok:     # Safe: hardcoded email address without CRLF
+# ok:     safe_email = 'user@example.com'
+# ok:     mailbox = MailboxAddress('User Name', safe_email)
+# ok:     return mailbox
+# ok: 
+# ok: # Safe usage with literal string
+# ok: mailbox = create_safe_mailbox()
+
+# FP-2: proper input sanitization before MailboxAddress creation
+# Accuracy result: N/A
+# ok: import MimeKit
+# ok: 
+# ok: def validate_and_create_mailbox(user_input):
+# ok:     # Safe: input validation removes CRLF before creating MailboxAddress
+# ok:     sanitized = user_input.replace('\r', '').replace('\n', '').replace('\t', '')
+# ok:     if '@' not in sanitized or len(sanitized) > 254:
+# ok:         raise ValueError('Invalid email format')
+# ok:     
+# ok:     mailbox = MimeKit.MailboxAddress('', sanitized + '@trusted-domain.com')
+# ok:     return mailbox
+# ok: 
+# ok: # Safe usage with proper validation
+# ok: safe_mailbox = validate_and_create_mailbox('user123')
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: configuration-driven email address - safe if config is trusted, vulnerable if config can be manipulated → N/A
+# from MimeKit import MailboxAddress
+# import config
+# 
+# def create_system_mailbox():
+#     # Edge case: email from config file - depends on config source trustworthiness
+#     system_email = config.SYSTEM_FROM_EMAIL  # Could be from env var or config file
+#     mailbox = MailboxAddress('System', system_email)
+#     return mailbox
+# 
+# # Usage with configuration-driven email
+# mailbox = create_system_mailbox()
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   F 🔴
+# Score:   0/100
+# TP rate: 0% (undefined/undefined)
+# FP rate: 0% (undefined/undefined false alarms)
