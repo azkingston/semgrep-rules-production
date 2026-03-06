@@ -1,0 +1,99 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-jf73-858c-54pg
+# Rule:      autogen-authorization-flaw-ghsa-jf73-858c-54pg.yaml
+# Language:  python
+# Grade:     F (0/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: 0/2 caught
+
+# TP-1: Dashboard endpoint missing view permission check - exposes all non-hidden actions regardless of user view permissions
+# Accuracy result: MISS ❌
+def get_dashboard(self, request):
+    dashboard_actions = []
+    for action_id, binding in self.action_bindings.items():
+        if binding.hidden:
+            continue
+        action_data = self.build_action_metadata(binding, request.user)
+        dashboard_actions.append(action_data)
+# ruleid: autogen-authorization-flaw-ghsa-jf73-858c-54pg
+    return {'actions': dashboard_actions}
+
+# TP-2: Action binding endpoint returns metadata without checking view permissions - only validates exec permission
+# Accuracy result: MISS ❌
+def get_action_binding(self, binding_id, user):
+    binding = self.action_bindings.get(binding_id)
+    if not binding:
+        return None
+    # Only checks exec permission, missing view permission check
+    can_exec = self.acl.is_allowed_exec(user, binding_id)
+    return {
+        'bindingId': binding_id,
+        'title': binding.title,
+        'icon': binding.icon,
+        'description': binding.description,
+        'canExec': can_exec,
+        'arguments': binding.arguments
+# ruleid: autogen-authorization-flaw-ghsa-jf73-858c-54pg
+    }
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: 2/2 clean
+
+# FP-1: Properly implemented dashboard with view permission check before exposing action metadata
+# Accuracy result: CLEAN ✅
+# ok: def get_dashboard(self, request):
+# ok:     dashboard_actions = []
+# ok:     for action_id, binding in self.action_bindings.items():
+# ok:         if binding.hidden:
+# ok:             continue
+# ok:         if not self.acl.is_allowed_view(request.user, action_id):
+# ok:             continue
+# ok:         action_data = self.build_action_metadata(binding, request.user)
+# ok:         dashboard_actions.append(action_data)
+# ok:     return {'actions': dashboard_actions}
+
+# FP-2: Secure action binding endpoint that enforces view permissions before returning any metadata
+# Accuracy result: CLEAN ✅
+# ok: def get_action_binding(self, binding_id, user):
+# ok:     binding = self.action_bindings.get(binding_id)
+# ok:     if not binding:
+# ok:         return None
+# ok:     if not self.acl.is_allowed_view(user, binding_id):
+# ok:         raise PermissionError('Access denied: insufficient view permissions')
+# ok:     can_exec = self.acl.is_allowed_exec(user, binding_id)
+# ok:     return {
+# ok:         'bindingId': binding_id,
+# ok:         'title': binding.title,
+# ok:         'canExec': can_exec
+# ok:     }
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: Uses custom access control instead of standard view permission - depends on implementation of custom_access_control method → SILENT
+# def get_dashboard(self, request):
+#     dashboard_actions = []
+#     for action_id, binding in self.action_bindings.items():
+#         if binding.hidden or binding.system_only:
+#             continue
+#         # Custom permission logic - may or may not be equivalent to view check
+#         if not self.custom_access_control(request.user, binding):
+#             continue
+#         action_data = self.build_action_metadata(binding, request.user)
+#         dashboard_actions.append(action_data)
+#     return {'actions': dashboard_actions}
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   F 🔴
+# Score:   0/100
+# TP rate: 0% (0/2)
+# FP rate: 0% (0/2 false alarms)
+# Edges:   0/1 fired
