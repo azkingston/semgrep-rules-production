@@ -1,0 +1,72 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-vgjm-2cpf-4g7c
+# Language:  python
+# Grade:     F (0/100) 🔴
+# TP Rate:   0%
+# FP Rate:   0%
+# Attempts:  1 of 3
+# Generated: 2026-03-06T08:48:48.467Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-dom-based-xss-ghsa-vgjm-2cpf-4g7c
+    message: "DOM-based XSS vulnerability detected: milestone names are being rendered in HTML contexts without proper escaping, allowing stored XSS attacks. This can lead to session hijacking, CSRF token theft, and unauthorized repository operations. Fix by: 1) HTML-escape all milestone names before rendering in templates (use html.escape() or template auto-escaping), 2) Sanitize milestone names on input with bleach.clean(), 3) Implement Content Security Policy (CSP), 4) Validate milestone names to reject HTML/JavaScript content."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cve: GHSA-vgjm-2cpf-4g7c
+      cwe: "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+      references:
+        - https://github.com/gogs/gogs/security/advisories/GHSA-vgjm-2cpf-4g7c
+        - https://github.com/gogs/gogs/releases/tag/v0.14.2
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: $MILESTONE.name
+          - pattern: $MILESTONE.title
+          - pattern: $REQUEST.form.get("milestone")
+          - pattern: $REQUEST.form.get("milestone_name")
+          - pattern: $REQUEST.args.get("milestone")
+          - pattern: $REQUEST.json.get("milestone")
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: render_template($TEMPLATE, ..., milestone_name=$TAINTED, ...)
+              - pattern: render_template($TEMPLATE, ..., milestone=$TAINTED, ...)
+              - pattern: render_template($TEMPLATE, ..., milestones=$TAINTED, ...)
+              - pattern: render_template_string($TEMPLATE_STR, ..., milestone_name=$TAINTED, ...)
+              - pattern: render_template_string($TEMPLATE_STR, ..., milestone=$TAINTED, ...)
+              - pattern: jsonify(..., name=$TAINTED, ...)
+              - pattern: jsonify($TAINTED)
+          - focus-metavariable: $TAINTED
+      - patterns:
+          - pattern-either:
+              - pattern: f"<option value='{$ID}'>{$TAINTED}</option>"
+              - pattern: f"<span class='milestone'>{$TAINTED}</span>"
+              - pattern: f"<div class='milestone-name'>{$TAINTED}</div>"
+              - pattern: "<option value='{}'>{}".format($ID, $TAINTED)
+              - pattern: "<span>{}</span>".format($TAINTED)
+          - focus-metavariable: $TAINTED
+    pattern-sanitizers:
+      - pattern: html.escape($INPUT)
+      - pattern: escape($INPUT)
+      - pattern: bleach.clean($INPUT)
+      - pattern: bleach.clean($INPUT, ...)
+    pattern-not-inside:
+      - pattern: |
+          def $FUNC(...):
+              ...
+              $MILESTONE_NAME = html.escape($MILESTONE.name)
+              ...
+      - pattern: |
+          def $FUNC(...):
+              ...
+              $MILESTONE_NAME = escape($MILESTONE.name)
+              ...
+      - pattern: |
+          def $FUNC(...):
+              ...
+              $MILESTONE_NAME = bleach.clean($MILESTONE.name)
+              ...
