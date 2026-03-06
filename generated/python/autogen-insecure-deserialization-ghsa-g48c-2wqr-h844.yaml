@@ -1,0 +1,72 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-g48c-2wqr-h844
+# Language:    python
+# Grade:       F (0/100)
+# TP Rate:     0%
+# FP Rate:     0%
+# Attempts:    1 of 3
+# Generated:   2026-03-06T03:19:38.425Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-insecure-deserialization-ghsa-g48c-2wqr-h844
+    version: 1.0.0
+    metadata:
+      description: "Detects unsafe msgpack deserialization in LangGraph checkpoint loading without proper allowlist restrictions"
+      severity: MODERATE
+      references:
+        - "https://github.com/advisories/GHSA-g48c-2wqr-h844"
+        - "https://cwe.mitre.org/data/definitions/502.html"
+        - "https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/"
+      category: security
+      cwe:
+        - "CWE-502: Deserialization of Untrusted Data"
+      owasp:
+        - "A08:2021 - Software and Data Integrity Failures"
+    message: "Unsafe msgpack deserialization detected in LangGraph checkpoint loading. This allows arbitrary code execution if an attacker can modify checkpoint data in the backing store. The code uses msgpack deserialization without proper allowlist restrictions, potentially reconstructing dangerous Python objects. Fix by: 1) Enable strict mode with LANGGRAPH_STRICT_MSGPACK=true environment variable, 2) Configure JsonPlusSerializer with allowed_msgpack_modules=None for strict allowlist, 3) Use explicit allowlist with allowed_msgpack_modules=[(module, class_name), ...] for required types, 4) Ensure checkpointer implements with_allowlist() for allowlist enforcement, 5) Avoid custom ext_hook functions that bypass allowlist checks."
+    languages:
+      - python
+    severity: ERROR
+    pattern-either:
+      - pattern: |
+          JsonPlusSerializer(allowed_msgpack_modules=True, ...)
+      - pattern: |
+          JsonPlusSerializer()
+      - pattern: |
+          $CHECKPOINTER = $CHECKPOINTER_CLASS($SERIALIZER)
+          ...
+          $CHECKPOINTER.load(...)
+      - pattern: |
+          def load_checkpoint(...):
+              ...
+              msgpack.unpackb($DATA, ...)
+              ...
+      - pattern: |
+          def deserialize_checkpoint(...):
+              ...
+              msgpack.loads($CHECKPOINT_DATA)
+              ...
+      - pattern: |
+          $SERIALIZER = JsonPlusSerializer(allowed_msgpack_modules=$MODULES)
+          ...
+          $CHECKPOINTER.get(...)
+      - pattern: |
+          msgpack.unpack($STREAM, ext_hook=$CUSTOM_HOOK)
+      - pattern: |
+          msgpack.unpackb($DATA, ext_hook=$EXT_HOOK, ...)
+    pattern-not-inside: |
+      JsonPlusSerializer(allowed_msgpack_modules=None, ...)
+    pattern-not-inside: |
+      JsonPlusSerializer(allowed_msgpack_modules=[], ...)
+    pattern-not-inside: |
+      JsonPlusSerializer(allowed_msgpack_modules=[...], ...)
+    pattern-not-inside: |
+      def $FUNC(...):
+          ...
+          if os.environ.get("LANGGRAPH_STRICT_MSGPACK"):
+              ...
+          ...
+    pattern-not-inside: |
+      def $FUNC(...):
+          ...
+          $SERIALIZER = JsonPlusSerializer(allowed_msgpack_modules=None)
+          ...
