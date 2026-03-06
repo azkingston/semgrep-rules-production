@@ -5,7 +5,7 @@
 # TP Rate:   0%
 # FP Rate:   0%
 # Attempts:  1 of 3
-# Generated: 2026-03-06T07:56:07.100Z
+# Generated: 2026-03-06T08:36:43.692Z
 # ═══════════════════════════════════════════════════
 rules:
   - id: autogen-cwe-200-exposure-of-sensitive-information-ghsa-jc5m-wrp2-qq38
