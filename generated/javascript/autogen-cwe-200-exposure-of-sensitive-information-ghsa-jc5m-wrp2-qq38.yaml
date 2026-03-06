@@ -1,0 +1,77 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-jc5m-wrp2-qq38
+# Language:    javascript
+# Grade:       F (0/100)
+# TP Rate:     0%
+# FP Rate:     0%
+# Attempts:    1 of 3
+# Generated:   2026-03-06T03:09:50.544Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-cwe-200-exposure-of-sensitive-information-ghsa-jc5m-wrp2-qq38
+    message: >-
+      Forgot password endpoint is returning sensitive user information instead of a generic success message.
+      This exposes PII (user ID, name, email, status, timestamps) to unauthenticated attackers.
+      Replace the return of user object with a generic success message like 
+      '{"message": "If this email exists, a password reset link has been sent."}'
+    severity: WARNING
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      version: "1.0"
+      description: "Detects forgot password endpoints that return user objects containing PII instead of generic success messages"
+      references:
+        - "https://github.com/advisories/GHSA-jc5m-wrp2-qq38"
+        - "https://cwe.mitre.org/data/definitions/200.html"
+        - "https://owasp.org/www-project-cheat-sheets/cheatsheets/Authentication_Cheat_Sheet.html#password-recovery"
+      cwe:
+        - "CWE-200: Exposure of Sensitive Information to an Unauthorized Actor"
+    pattern-either:
+      - pattern: |
+          async $FUNC(...$ARGS) {
+            ...
+            return sanitizeUser($USER);
+          }
+      - pattern: |
+          function $FUNC(...$ARGS) {
+            ...
+            return sanitizeUser($USER);
+          }
+      - pattern: |
+          $FUNC = async (...$ARGS) => {
+            ...
+            return sanitizeUser($USER);
+          }
+      - pattern: |
+          $FUNC = (...$ARGS) => {
+            ...
+            return sanitizeUser($USER);
+          }
+      - pattern: |
+          async $FUNC(...$ARGS) {
+            ...
+            return { id: $USER.id, name: $USER.name, email: $USER.email, ... };
+          }
+      - pattern: |
+          function $FUNC(...$ARGS) {
+            ...
+            return { id: $USER.id, name: $USER.name, email: $USER.email, ... };
+          }
+      - pattern: |
+          async $FUNC(...$ARGS) {
+            ...
+            return $USER;
+          }
+      - pattern: |
+          function $FUNC(...$ARGS) {
+            ...
+            return $USER;
+          }
+    metavariable-pattern:
+      metavariable: $FUNC
+      patterns:
+        - pattern-either:
+            - pattern-regex: ".*[fF]orgot[pP]assword.*"
+            - pattern-regex: ".*[rR]eset[pP]assword.*"
+            - pattern-regex: ".*[pP]assword[rR]eset.*"
