@@ -5,7 +5,7 @@
 # TP Rate:   100%
 # FP Rate:   0%
 # Attempts:  1 of 3
-# Generated: 2026-03-06T07:59:44.588Z
+# Generated: 2026-03-06T08:40:37.672Z
 # ═══════════════════════════════════════════════════
 rules:
   - id: autogen-information-disclosure-ghsa-73hc-m4hx-79pj
