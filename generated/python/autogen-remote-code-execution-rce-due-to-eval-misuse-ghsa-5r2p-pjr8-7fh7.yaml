@@ -5,55 +5,52 @@
 # TP Rate:   0%
 # FP Rate:   0%
 # Attempts:  1 of 3
-# Generated: 2026-03-06T04:01:31.847Z
+# Generated: 2026-03-06T07:55:25.596Z
 # ═══════════════════════════════════════════════════
 rules:
-  - id: autogen-remote-code-execution-(rce)-due-to-eval-misuse-ghsa-5r2p-pjr8-7fh7
-    version: 1.0.0
+  - id: autogen-remote-code-execution-rce-due-to-eval-misuse-ghsa-5r2p-pjr8-7fh7
+    mode: taint
+    message: "Remote Code Execution (RCE) vulnerability detected: untrusted input flows to SageMaker Python SDK search_hub() function which uses eval() internally to process query parameters, allowing arbitrary code execution. Fix by: 1) Upgrade to SageMaker Python SDK version 3.4.0 or later which replaces eval() with a safe recursive descent parser, 2) Sanitize and validate all input to the search_hub() query parameter to ensure only expected formats are processed, 3) Never pass untrusted user input directly to search_hub() without proper validation."
+    languages: [python]
+    severity: ERROR
     metadata:
-      description: "Detects potential RCE vulnerability in SageMaker Python SDK JumpStart search functionality due to eval() misuse"
-      severity: HIGH
+      cve: GHSA-5r2p-pjr8-7fh7
+      cwe: "CWE-94: Improper Control of Generation of Code ('Code Injection')"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
       references:
         - "https://github.com/advisories/GHSA-5r2p-pjr8-7fh7"
         - "https://github.com/aws/sagemaker-python-sdk/pull/5497"
         - "https://pypi.org/project/sagemaker/3.4.0/"
-      category: security
-      cwe:
-        - "CWE-94: Improper Control of Generation of Code ('Code Injection')"
-      owasp:
-        - "A03:2021 - Injection"
-    message: "Potential Remote Code Execution (RCE) vulnerability detected in SageMaker Python SDK search_hub() function. The function may use eval() to process query parameters, allowing arbitrary code execution if untrusted input is passed. Fix by: 1) Upgrade to SageMaker Python SDK version 3.4.0 or later which replaces eval() with a safe recursive descent parser, 2) Sanitize and validate all input to the search_hub() query parameter to ensure only expected formats are processed, 3) Never pass untrusted user input directly to search_hub() without proper validation."
-    languages:
-      - python
-    severity: ERROR
-    pattern-either:
-      - pattern: |
-          from sagemaker.jumpstart import $MOD
-          ...
-          $MOD.search_hub($QUERY, ...)
-      - pattern: |
-          import sagemaker.jumpstart.$MOD
-          ...
-          sagemaker.jumpstart.$MOD.search_hub($QUERY, ...)
-      - pattern: |
-          from sagemaker.jumpstart.$MOD import search_hub
-          ...
-          search_hub($QUERY, ...)
-      - pattern: |
-          import sagemaker
-          ...
-          sagemaker.jumpstart.$MOD.search_hub($QUERY, ...)
-      - pattern: |
-          from sagemaker.jumpstart.hub import search_hub
-          ...
-          search_hub($QUERY, ...)
-      - pattern: |
-          import sagemaker.jumpstart.hub as $HUB
-          ...
-          $HUB.search_hub($QUERY, ...)
-      - pattern: |
-          from sagemaker.jumpstart.hub import *
-          ...
-          search_hub($QUERY, ...)
-    pattern-not: |
-      $FUNC.search_hub("...", ...)
+    pattern-sources:
+      - pattern-either:
+          - pattern: request.args.get(...)
+          - pattern: request.form.get(...)
+          - pattern: request.json
+          - pattern: input(...)
+          - pattern: os.environ.get(...)
+          - pattern: sys.argv[...]
+          - pattern: $REQUEST.GET.get(...)
+          - pattern: $REQUEST.POST.get(...)
+    pattern-sanitizers:
+      - pattern: re.escape(...)
+      - pattern: html.escape(...)
+      - pattern: urllib.parse.quote(...)
+      - pattern: str.replace($INPUT, ...)
+      - pattern: json.loads(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: search_hub($QUERY, ...)
+              - pattern: $MOD.search_hub($QUERY, ...)
+              - pattern: sagemaker.jumpstart.hub.search_hub($QUERY, ...)
+              - pattern: sagemaker.jumpstart.$MOD.search_hub($QUERY, ...)
+          - focus-metavariable: $QUERY
+    pattern-propagators:
+      - pattern: $DICT[$KEY] = $TAINTED
+        from: $TAINTED
+        to: $DICT
+      - pattern: $LIST.append($TAINTED)
+        from: $TAINTED
+        to: $LIST
