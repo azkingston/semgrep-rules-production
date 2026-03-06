@@ -1,0 +1,105 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-cj4v-437j-jq4c
+# Language:    python
+# Grade:       F (0/100)
+# TP Rate:     0%
+# FP Rate:     0%
+# Attempts:    1 of 3
+# Generated:   2026-03-06T03:22:40.607Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-cross-repository-lfs-object-overwrite-ghsa-cj4v-437j-jq4c
+    version: 1.0.0
+    metadata:
+      description: "Detects cross-repository LFS object overwrite vulnerability where LFS objects are stored without repository isolation and content hash verification is missing"
+      severity: CRITICAL
+      references:
+        - "https://github.com/advisories/GHSA-cj4v-437j-jq4c"
+        - "https://cwe.mitre.org/data/definitions/345.html"
+      category: security
+      cwe:
+        - "CWE-345: Insufficient Verification of Data Authenticity"
+        - "CWE-434: Unrestricted Upload of File with Dangerous Type"
+      owasp:
+        - "A08:2021 - Software and Data Integrity Failures"
+    message: "Cross-repository LFS object overwrite vulnerability detected: LFS objects are stored without repository isolation and uploaded content is not verified against claimed SHA-256 hash, allowing attackers to overwrite LFS objects across repositories for supply-chain attacks. Fix by: 1) Include repository ID in LFS object storage path for isolation, 2) Verify uploaded file content matches claimed SHA-256 hash before storing, 3) Implement content integrity checks on file retrieval, 4) Add proper access controls to prevent cross-repository object manipulation, 5) Use secure file storage with atomic operations."
+    languages:
+      - python
+    severity: ERROR
+    pattern-either:
+      - pattern: |
+          def store_lfs_object($OID, $DATA, ...):
+              ...
+              $PATH = os.path.join($STORAGE_DIR, $OID)
+              ...
+              with open($PATH, 'wb') as $FILE:
+                  $FILE.write($DATA)
+      - pattern: |
+          def upload_lfs_object($OID, $CONTENT, ...):
+              ...
+              $STORAGE_PATH = f"{$STORAGE_ROOT}/{$OID}"
+              ...
+              with open($STORAGE_PATH, 'wb') as $F:
+                  $F.write($CONTENT)
+      - pattern: |
+          def put_lfs_object($OID, $FILE_DATA, ...):
+              ...
+              $FILE_PATH = $STORAGE_BASE + "/" + $OID
+              ...
+              open($FILE_PATH, 'wb').write($FILE_DATA)
+      - pattern: |
+          def save_lfs_file($HASH, $PAYLOAD, ...):
+              ...
+              $DEST = os.path.join($LFS_STORAGE, $HASH)
+              ...
+              shutil.copyfile($TEMP_FILE, $DEST)
+      - pattern: |
+          def handle_lfs_upload($REQUEST, $OID, ...):
+              ...
+              $CONTENT = $REQUEST.data
+              ...
+              $TARGET_PATH = f"{$LFS_DIR}/{$OID}"
+              ...
+              with open($TARGET_PATH, 'wb') as $OUTPUT:
+                  $OUTPUT.write($CONTENT)
+      - pattern: |
+          @$APP.route("/.../lfs/objects/basic/<oid>", methods=["PUT"])
+          def $FUNC($OID, ...):
+              ...
+              $DATA = request.get_data()
+              ...
+              $PATH = os.path.join($STORAGE, $OID)
+              ...
+              with open($PATH, 'wb') as $F:
+                  $F.write($DATA)
+      - pattern: |
+          def lfs_object_upload($OID, ...):
+              ...
+              $STORAGE_PATH = pathlib.Path($LFS_ROOT) / $OID
+              ...
+              $STORAGE_PATH.write_bytes($REQUEST_DATA)
+      - pattern: |
+          def store_object($HASH, $STREAM, ...):
+              ...
+              $OBJECT_PATH = f"{$OBJECTS_DIR}/{$HASH}"
+              ...
+              with open($OBJECT_PATH, 'wb') as $DEST:
+                  shutil.copyfileobj($STREAM, $DEST)
+    pattern-not-inside: |
+      def $FUNC(...):
+          ...
+          $CALCULATED_HASH = hashlib.sha256($CONTENT).hexdigest()
+          if $CALCULATED_HASH != $EXPECTED_OID:
+              raise ValueError("Hash mismatch")
+          ...
+    pattern-not-inside: |
+      def $FUNC(...):
+          ...
+          $REPO_PATH = os.path.join($STORAGE_DIR, $REPO_ID, $OID)
+          ...
+    pattern-not-inside: |
+      def $FUNC(...):
+          ...
+          if hashlib.sha256($DATA).hexdigest() != $OID:
+              return abort(400, "Content hash verification failed")
+          ...
