@@ -1,0 +1,80 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-p443-p7w5-2f7f
+# Rule:      autogen-privilege-escalation-ghsa-p443-p7w5-2f7f.yaml
+# Language:  python
+# Grade:     F (0/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: 0/2 caught
+
+# TP-1: Creates new request without preserving authentication context, allowing privilege escalation
+# Accuracy result: MISS ❌
+def restart_action(ctx, execution_tracking_id):
+    new_request = connect.Request({
+        'msg': {
+            'binding_id': get_binding_id(execution_tracking_id),
+            'unique_tracking_id': execution_tracking_id
+        }
+    })
+# ruleid: autogen-privilege-escalation-ghsa-p443-p7w5-2f7f
+    return start_action(ctx, new_request)
+
+# TP-2: Authentication resolution on synthetic request without original headers falls back to guest user
+# Accuracy result: MISS ❌
+class ApiService:
+    def restart_action(self, ctx, req):
+        synthetic_req = create_request({
+            'binding_id': req.binding_id,
+            'tracking_id': req.execution_tracking_id
+        })
+        authenticated_user = auth.get_user_from_request(ctx, synthetic_req)
+# ruleid: autogen-privilege-escalation-ghsa-p443-p7w5-2f7f
+        return self.execute_action(authenticated_user, synthetic_req)
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: 2/2 clean
+
+# FP-1: Properly preserves authentication headers and cookies in new request
+# Accuracy result: CLEAN ✅
+# ok: def restart_action(ctx, req):
+# ok:     new_request = connect.Request({
+# ok:         'msg': {
+# ok:             'binding_id': get_binding_id(req.execution_tracking_id),
+# ok:             'tracking_id': req.execution_tracking_id
+# ok:         },
+# ok:         'headers': req.headers,
+# ok:         'cookies': req.cookies
+# ok:     })
+# ok:     return start_action(ctx, new_request)
+
+# FP-2: Validates permissions using original request context before execution
+# Accuracy result: CLEAN ✅
+# ok: def restart_action(ctx, req):
+# ok:     authenticated_user = auth.get_user_from_request(ctx, req)
+# ok:     if not authenticated_user.has_permission('exec'):
+# ok:         raise PermissionError('Insufficient privileges')
+# ok:     return execute_with_user_context(authenticated_user, req.tracking_id)
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: Extracts user context from original request but method of preservation is unclear - depends on implementation → SILENT
+# def restart_action(ctx, req):
+#     user_context = extract_user_context(ctx)
+#     new_request = build_internal_request(req.tracking_id)
+#     new_request.user = user_context
+#     return start_action(ctx, new_request)
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   F 🔴
+# Score:   0/100
+# TP rate: 0% (0/2)
+# FP rate: 0% (0/2 false alarms)
+# Edges:   0/1 fired
