@@ -1,19 +1,19 @@
 # ═══════════════════════════════════════════════════
 # AutoGen Rule — GHSA-jc5m-wrp2-qq38
-# Language:    javascript
-# Grade:       F (0/100)
-# TP Rate:     0%
-# FP Rate:     0%
-# Attempts:    1 of 3
-# Generated:   2026-03-06T03:09:50.544Z
+# Language:  javascript
+# Grade:     F (0/100) 🔴
+# TP Rate:   0%
+# FP Rate:   0%
+# Attempts:  1 of 3
+# Generated: 2026-03-06T04:02:11.631Z
 # ═══════════════════════════════════════════════════
 rules:
   - id: autogen-cwe-200-exposure-of-sensitive-information-ghsa-jc5m-wrp2-qq38
     message: >-
       Forgot password endpoint is returning sensitive user information instead of a generic success message.
-      This exposes PII (user ID, name, email, status, timestamps) to unauthenticated attackers.
-      Replace the return of user object with a generic success message like 
-      '{"message": "If this email exists, a password reset link has been sent."}'
+      This exposes PII (user ID, name, email, status, timestamps) to unauthenticated attackers who only need
+      to know a valid email address. Replace the return of user object with a generic success message like 
+      '{"message": "If this email exists, a password reset link has been sent."}' to prevent information disclosure.
     severity: WARNING
     languages:
       - javascript
@@ -28,50 +28,115 @@ rules:
       cwe:
         - "CWE-200: Exposure of Sensitive Information to an Unauthorized Actor"
     pattern-either:
-      - pattern: |
-          async $FUNC(...$ARGS) {
-            ...
-            return sanitizeUser($USER);
-          }
-      - pattern: |
-          function $FUNC(...$ARGS) {
-            ...
-            return sanitizeUser($USER);
-          }
-      - pattern: |
-          $FUNC = async (...$ARGS) => {
-            ...
-            return sanitizeUser($USER);
-          }
-      - pattern: |
-          $FUNC = (...$ARGS) => {
-            ...
-            return sanitizeUser($USER);
-          }
-      - pattern: |
-          async $FUNC(...$ARGS) {
-            ...
-            return { id: $USER.id, name: $USER.name, email: $USER.email, ... };
-          }
-      - pattern: |
-          function $FUNC(...$ARGS) {
-            ...
-            return { id: $USER.id, name: $USER.name, email: $USER.email, ... };
-          }
-      - pattern: |
-          async $FUNC(...$ARGS) {
-            ...
-            return $USER;
-          }
-      - pattern: |
-          function $FUNC(...$ARGS) {
-            ...
-            return $USER;
-          }
-    metavariable-pattern:
-      metavariable: $FUNC
-      patterns:
-        - pattern-either:
-            - pattern-regex: ".*[fF]orgot[pP]assword.*"
-            - pattern-regex: ".*[rR]eset[pP]assword.*"
-            - pattern-regex: ".*[pP]assword[rR]eset.*"
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  async $FUNC(...$ARGS) {
+                    ...
+                    return sanitizeUser($USER);
+                  }
+              - pattern: |
+                  function $FUNC(...$ARGS) {
+                    ...
+                    return sanitizeUser($USER);
+                  }
+              - pattern: |
+                  $FUNC = async (...$ARGS) => {
+                    ...
+                    return sanitizeUser($USER);
+                  }
+              - pattern: |
+                  $FUNC = (...$ARGS) => {
+                    ...
+                    return sanitizeUser($USER);
+                  }
+          - metavariable-regex:
+              metavariable: $FUNC
+              regex: ".*[fF]orgot[pP]assword.*"
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  async $FUNC(...$ARGS) {
+                    ...
+                    return $USER;
+                  }
+              - pattern: |
+                  function $FUNC(...$ARGS) {
+                    ...
+                    return $USER;
+                  }
+              - pattern: |
+                  $FUNC = async (...$ARGS) => {
+                    ...
+                    return $USER;
+                  }
+              - pattern: |
+                  $FUNC = (...$ARGS) => {
+                    ...
+                    return $USER;
+                  }
+          - metavariable-regex:
+              metavariable: $FUNC
+              regex: ".*[fF]orgot[pP]assword.*"
+          - pattern-inside: |
+              $FUNC(...$ARGS) {
+                ...
+                $USER = ...readUser...(...);
+                ...
+              }
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  async $FUNC(...$ARGS) {
+                    ...
+                    return { ...$OBJ };
+                  }
+              - pattern: |
+                  function $FUNC(...$ARGS) {
+                    ...
+                    return { ...$OBJ };
+                  }
+              - pattern: |
+                  $FUNC = async (...$ARGS) => {
+                    ...
+                    return { ...$OBJ };
+                  }
+              - pattern: |
+                  $FUNC = (...$ARGS) => {
+                    ...
+                    return { ...$OBJ };
+                  }
+          - metavariable-regex:
+              metavariable: $FUNC
+              regex: ".*[fF]orgot[pP]assword.*"
+          - pattern-inside: |
+              $FUNC(...$ARGS) {
+                ...
+                $OBJ = ...readUser...(...);
+                ...
+              }
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  async $FUNC(...$ARGS) {
+                    ...
+                    return { id: $USER.id, name: $USER.name, email: $USER.email, ...$REST };
+                  }
+              - pattern: |
+                  function $FUNC(...$ARGS) {
+                    ...
+                    return { id: $USER.id, name: $USER.name, email: $USER.email, ...$REST };
+                  }
+              - pattern: |
+                  async $FUNC(...$ARGS) {
+                    ...
+                    return { id: $ID, name: $NAME, email: $EMAIL, ...$REST };
+                  }
+              - pattern: |
+                  function $FUNC(...$ARGS) {
+                    ...
+                    return { id: $ID, name: $NAME, email: $EMAIL, ...$REST };
+                  }
+          - metavariable-regex:
+              metavariable: $FUNC
+              regex: ".*[fF]orgot[pP]assword.*"
