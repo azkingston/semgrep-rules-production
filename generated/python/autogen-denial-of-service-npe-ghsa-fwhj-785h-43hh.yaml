@@ -1,0 +1,86 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-fwhj-785h-43hh
+# Language:    python
+# Grade:       F (0/100)
+# TP Rate:     0%
+# FP Rate:     0%
+# Attempts:    1 of 3
+# Generated:   2026-03-06T03:16:35.627Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-denial-of-service-(npe)-ghsa-fwhj-785h-43hh
+    version: 1.0.0
+    metadata:
+      description: "Detects denial of service vulnerability where API handlers dereference binding without null checks, causing NPE when invalid tracking IDs are used"
+      severity: MEDIUM
+      references:
+        - "https://github.com/advisories/GHSA-fwhj-785h-43hh"
+        - "https://cwe.mitre.org/data/definitions/476.html"
+      category: security
+      cwe:
+        - "CWE-476: NULL Pointer Dereference"
+      owasp:
+        - "A06:2021 - Vulnerable and Outdated Components"
+    message: "Denial of service vulnerability detected: API handlers are dereferencing execution log entry bindings without null checks, causing NPE when invalid tracking IDs create entries with nil bindings. This allows unauthenticated attackers to trigger server panics. Fix by adding null checks for execReqLogEntry.Binding before dereferencing execReqLogEntry.Binding.Action, and validate tracking IDs properly before performing operations."
+    languages:
+      - python
+    severity: ERROR
+    pattern-either:
+      - pattern: |
+          def kill_action($REQUEST, ...):
+              ...
+              $ENTRY = $EXECUTOR.get_log_entry($TRACKING_ID)
+              ...
+              $ACTION = $ENTRY.binding.action
+              ...
+      - pattern: |
+          def restart_action($REQUEST, ...):
+              ...
+              $ENTRY = $EXECUTOR.get_log_entry($TRACKING_ID)
+              ...
+              $ACTION = $ENTRY.binding.action
+              ...
+      - pattern: |
+          def $FUNC(...):
+              ...
+              $TRACKING_ID = $REQUEST.get("execution_tracking_id")
+              ...
+              $ENTRY = $EXECUTOR.get_log_entry($TRACKING_ID)
+              ...
+              $ENTRY.binding.action.$ATTR
+              ...
+      - pattern: |
+          def $FUNC(...):
+              ...
+              $TRACKING_ID = $REQUEST["executionTrackingId"]
+              ...
+              $ENTRY = $EXECUTOR.get_log_entry($TRACKING_ID)
+              ...
+              $ENTRY.binding.action.$ATTR
+              ...
+      - pattern: |
+          $ENTRY = get_execution_log_entry($TRACKING_ID)
+          ...
+          $ENTRY.binding.action.$ATTR
+      - pattern: |
+          $ENTRY = $EXECUTOR.execution_logs[$TRACKING_ID]
+          ...
+          $ENTRY.binding.action.$ATTR
+    pattern-not-inside: |
+      if $ENTRY.binding is not None:
+          ...
+    pattern-not-inside: |
+      if $ENTRY.binding:
+          ...
+    pattern-not-inside: |
+      def $FUNC(...):
+          ...
+          if not $ENTRY.binding:
+              return $ERROR
+          ...
+    pattern-not-inside: |
+      def $FUNC(...):
+          ...
+          if $ENTRY.binding is None:
+              return $ERROR
+          ...
