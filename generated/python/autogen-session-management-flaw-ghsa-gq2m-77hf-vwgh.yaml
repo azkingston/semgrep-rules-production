@@ -1,0 +1,77 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-gq2m-77hf-vwgh
+# Language:  python
+# Grade:     A (100/100) 🟢
+# TP Rate:   100%
+# FP Rate:   0%
+# Attempts:  1 of 3
+# Generated: 2026-03-06T08:45:55.934Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-session-management-flaw-ghsa-gq2m-77hf-vwgh
+    message: "Session management flaw detected: logout function only clears client-side cookie without invalidating server-side session storage. This allows attackers with stolen session cookies to continue authenticating after logout, resulting in session fixation vulnerability. Fix by removing the session ID from session storage (e.g., del session_storage.providers[provider].sessions[sid]) or calling session.invalidate() to properly destroy server-side session data during logout."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cve: GHSA-gq2m-77hf-vwgh
+      cwe: "CWE-384: Session Fixation"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: MEDIUM
+      references:
+        - https://github.com/OliveTin/OliveTin/security/advisories/GHSA-gq2m-77hf-vwgh
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern-inside: |
+                  def $LOGOUT_FUNC(...):
+                      ...
+              - pattern-either:
+                  - pattern: $RESPONSE.headers["Set-Cookie"] = $COOKIE_STRING
+                  - pattern: $RESPONSE.set_cookie($COOKIE_NAME, value="", ...)
+                  - pattern: $RESPONSE.set_cookie($COOKIE_NAME, "", ...)
+                  - pattern: $RESPONSE.delete_cookie($COOKIE_NAME)
+                  - pattern: $RESPONSE.headers.set("Set-Cookie", $COOKIE)
+              - metavariable-regex:
+                  metavariable: $LOGOUT_FUNC
+                  regex: .*(logout|signout|log_out|sign_out).*
+          - patterns:
+              - pattern-inside: |
+                  def logout(...):
+                      ...
+              - pattern-either:
+                  - pattern: $RESPONSE.headers["Set-Cookie"] = $COOKIE_STRING
+                  - pattern: $RESPONSE.set_cookie($COOKIE_NAME, value="", ...)
+                  - pattern: $RESPONSE.set_cookie($COOKIE_NAME, "", ...)
+                  - pattern: $RESPONSE.delete_cookie($COOKIE_NAME)
+                  - pattern: $RESPONSE.headers.set("Set-Cookie", $COOKIE)
+      - pattern-not-inside: |
+          def $LOGOUT_FUNC(...):
+              ...
+              del session_storage.providers[$PROVIDER].sessions[$SID]
+              ...
+      - pattern-not-inside: |
+          def $LOGOUT_FUNC(...):
+              ...
+              session_storage.providers[$PROVIDER].sessions.pop($SID, ...)
+              ...
+      - pattern-not-inside: |
+          def $LOGOUT_FUNC(...):
+              ...
+              $SESSION_STORAGE.remove_session($SID)
+              ...
+      - pattern-not-inside: |
+          def $LOGOUT_FUNC(...):
+              ...
+              $SESSION.invalidate()
+              ...
+      - pattern-not-inside: |
+          def $LOGOUT_FUNC(...):
+              ...
+              del $SESSION_DICT[$SID]
+              ...
+      - pattern-not-inside: |
+          def $LOGOUT_FUNC(...):
+              ...
+              $SESSION_DICT.pop($SID, ...)
+              ...
