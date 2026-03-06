@@ -1,0 +1,55 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-5r2p-pjr8-7fh7
+# Language:    python
+# Grade:       F (0/100)
+# TP Rate:     0%
+# FP Rate:     0%
+# Attempts:    2 of 3
+# Generated:   2026-03-06T03:09:09.014Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-remote-code-execution-(rce)-due-to-eval-misuse-ghsa-5r2p-pjr8-7fh7
+    version: 1.0.0
+    metadata:
+      description: "Detects potential RCE vulnerability in SageMaker Python SDK JumpStart search functionality due to eval() misuse"
+      severity: HIGH
+      references:
+        - "https://github.com/advisories/GHSA-5r2p-pjr8-7fh7"
+        - "https://github.com/aws/sagemaker-python-sdk/pull/5497"
+        - "https://pypi.org/project/sagemaker/3.4.0/"
+      category: security
+      cwe:
+        - "CWE-94: Improper Control of Generation of Code ('Code Injection')"
+      owasp:
+        - "A03:2021 - Injection"
+    message: "Potential Remote Code Execution (RCE) vulnerability detected in SageMaker Python SDK search_hub() function. The function may use eval() to process query parameters, allowing arbitrary code execution if untrusted input is passed. Upgrade to SageMaker Python SDK version 3.4.0 or later, and ensure proper input validation and sanitization for all user-controlled data passed to search_hub()."
+    languages:
+      - python
+    severity: ERROR
+    pattern-either:
+      - pattern: |
+          from sagemaker.jumpstart import $MOD
+          ...
+          $MOD.search_hub($QUERY, ...)
+      - pattern: |
+          import sagemaker.jumpstart.$MOD
+          ...
+          sagemaker.jumpstart.$MOD.search_hub($QUERY, ...)
+      - pattern: |
+          from sagemaker.jumpstart.$MOD import search_hub
+          ...
+          search_hub($QUERY, ...)
+      - pattern: |
+          import sagemaker
+          ...
+          sagemaker.jumpstart.$MOD.search_hub($QUERY, ...)
+      - pattern: |
+          $HUB.search_hub($QUERY, ...)
+    pattern-not: |
+      $HUB.search_hub("...", ...)
+    pattern-not: |
+      $HUB.search_hub($QUERY, ...)
+      where:
+        - metavariable-pattern:
+            metavariable: $QUERY
+            pattern: "..."
