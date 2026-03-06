@@ -1,0 +1,62 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-g7hc-96xr-gvvx
+# Language:  python
+# Grade:     F (0/100) 🔴
+# TP Rate:   0%
+# FP Rate:   0%
+# Attempts:  1 of 3
+# Generated: 2026-03-06T07:57:17.036Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-smtp-command-injection-crlf-injection-ghsa-g7hc-96xr-gvvx
+    mode: taint
+    message: "SMTP command injection vulnerability detected via CRLF injection in email addresses. User-controlled input containing CRLF sequences (\\r\\n) can be injected into SMTP commands, allowing attackers to inject additional SMTP commands like RCPT TO, DATA, or RSET. This can lead to email forgery, unauthorized recipient manipulation, and mail redirection. Validate and sanitize all email addresses by rejecting or removing CR/LF characters before using them in SMTP operations."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cve: GHSA-g7hc-96xr-gvvx
+      cwe: "CWE-93: Improper Neutralization of CRLF Sequences ('CRLF Injection')"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+      references:
+        - "https://github.com/advisories/GHSA-g7hc-96xr-gvvx"
+        - "https://cwe.mitre.org/data/definitions/93.html"
+        - "https://tools.ietf.org/html/rfc5321"
+    pattern-sources:
+      - pattern-either:
+          - pattern: request.args.get(...)
+          - pattern: request.form.get(...)
+          - pattern: request.json
+          - pattern: input(...)
+          - pattern: os.environ.get(...)
+          - pattern: sys.argv[...]
+          - pattern: $VAR.get(...)
+          - pattern: json.loads(...)
+    pattern-sanitizers:
+      - pattern: $VAR.replace("\r", "").replace("\n", "")
+      - pattern: $VAR.replace("\r\n", "")
+      - pattern: re.sub(r"[\r\n]+", "", $VAR)
+      - pattern: re.sub(r"\r|\n", "", $VAR)
+      - pattern: "".join($VAR.splitlines())
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $SMTP.sendmail($FROM, $TO, ...)
+              - pattern: $SMTP.send_message($MSG, $FROM, $TO, ...)
+              - pattern: $SMTP.mail($FROM)
+              - pattern: $SMTP.rcpt($TO)
+              - pattern: smtplib.$CLASS(...).sendmail($FROM, $TO, ...)
+              - pattern: smtplib.$CLASS(...).send_message($MSG, $FROM, $TO, ...)
+              - pattern: smtplib.$CLASS(...).mail($FROM)
+              - pattern: smtplib.$CLASS(...).rcpt($TO)
+          - focus-metavariable: $FROM
+      - patterns:
+          - pattern-either:
+              - pattern: $SMTP.sendmail($FROM, $TO, ...)
+              - pattern: $SMTP.send_message($MSG, $FROM, $TO, ...)
+              - pattern: $SMTP.rcpt($TO)
+              - pattern: smtplib.$CLASS(...).sendmail($FROM, $TO, ...)
+              - pattern: smtplib.$CLASS(...).send_message($MSG, $FROM, $TO, ...)
+              - pattern: smtplib.$CLASS(...).rcpt($TO)
+          - focus-metavariable: $TO
