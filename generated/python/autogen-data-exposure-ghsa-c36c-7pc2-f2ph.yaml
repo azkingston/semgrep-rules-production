@@ -1,0 +1,109 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-c36c-7pc2-f2ph
+# Language:    python
+# Grade:       F (0/100)
+# TP Rate:     0%
+# FP Rate:     0%
+# Attempts:    1 of 3
+# Generated:   2026-03-06T03:24:31.659Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-data-exposure-ghsa-c36c-7pc2-f2ph
+    version: 1.0.0
+    metadata:
+      description: "Detects data exposure vulnerability in upload status SSE implementation where global upload state is published to any authenticated listener without user scoping"
+      severity: MODERATE
+      references:
+        - "https://github.com/advisories/GHSA-c36c-7pc2-f2ph"
+        - "https://cwe.mitre.org/data/definitions/200.html"
+      category: security
+      cwe:
+        - "CWE-200: Information Exposure"
+      owasp:
+        - "A01:2021 - Broken Access Control"
+    message: "Data exposure vulnerability detected: upload status SSE endpoint publishes global upload state to any authenticated listener without proper user scoping, allowing unauthorized access to other users' file identifiers and content. This causes cross-tenant data exposure and confidentiality loss. Fix by: 1) Filter upload status events by requesting user ID, 2) Validate that file_id values are scoped to the authenticated user only, 3) Implement proper access control checks before broadcasting upload events, 4) Use user-specific SSE channels instead of global broadcasts, 5) Add authorization validation for file access before including file_id in status updates."
+    languages:
+      - python
+    severity: ERROR
+    pattern-either:
+      - pattern: |
+          @$APP.route("/uploadStatus", ...)
+          def $FUNC():
+              ...
+              def $GENERATOR():
+                  ...
+                  yield f"data: {json.dumps({'file_id': $FILE_ID, ...})}\n\n"
+                  ...
+              ...
+              return Response($GENERATOR(), mimetype='text/event-stream')
+      - pattern: |
+          def upload_status_stream():
+              ...
+              for $EVENT in $GLOBAL_UPLOAD_EVENTS:
+                  ...
+                  $DATA = {"file_id": $EVENT.file_id, ...}
+                  yield f"data: {json.dumps($DATA)}\n\n"
+      - pattern: |
+          def $FUNC(...):
+              ...
+              def $SSE_GENERATOR():
+                  while True:
+                      ...
+                      $UPLOAD_STATUS = get_all_upload_status()
+                      ...
+                      yield f"data: {json.dumps($UPLOAD_STATUS)}\n\n"
+              ...
+      - pattern: |
+          @$APP.route("/uploadStatus")
+          def $HANDLER():
+              ...
+              def $STREAM():
+                  ...
+                  $STATUS = {
+                      "file_id": $FILE.id,
+                      "progress": $PROGRESS,
+                      ...
+                  }
+                  yield f"data: {json.dumps($STATUS)}\n\n"
+              return Response($STREAM(), ...)
+      - pattern: |
+          def broadcast_upload_status($FILE_ID, ...):
+              ...
+              $MESSAGE = {
+                  "file_id": $FILE_ID,
+                  ...
+              }
+              ...
+              for $CLIENT in $ALL_CONNECTED_CLIENTS:
+                  $CLIENT.send(json.dumps($MESSAGE))
+      - pattern: |
+          def $FUNC(...):
+              ...
+              $UPLOAD_DATA = get_upload_progress()
+              ...
+              yield f"data: {json.dumps($UPLOAD_DATA)}\n\n"
+      - pattern: |
+          def handle_upload_status():
+              ...
+              $ALL_UPLOADS = $DB.query(Upload).all()
+              ...
+              for $UPLOAD in $ALL_UPLOADS:
+                  yield f"data: {json.dumps({'file_id': $UPLOAD.file_id, ...})}\n\n"
+    pattern-not-inside: |
+      def $FUNC(...):
+          ...
+          $USER_ID = get_current_user_id()
+          ...
+          $USER_UPLOADS = get_user_uploads($USER_ID)
+          ...
+    pattern-not-inside: |
+      def $FUNC(...):
+          ...
+          if $FILE.user_id != $CURRENT_USER.id:
+              continue
+          ...
+    pattern-not-inside: |
+      def $FUNC(...):
+          ...
+          $FILTERED_UPLOADS = filter_uploads_by_user($ALL_UPLOADS, $USER)
+          ...
