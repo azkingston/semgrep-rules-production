@@ -1,0 +1,79 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-xxh7-fcf3-rj7f
+# Language:    python
+# Grade:       F (0/100)
+# TP Rate:     0%
+# FP Rate:     0%
+# Attempts:    2 of 3
+# Generated:   2026-03-06T03:14:54.691Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-memory-leak-ghsa-xxh7-fcf3-rj7f
+    version: 1.0.0
+    metadata:
+      description: "Detects potential memory leak in Eclipse Jetty GzipHandler implementation where GzipRequest objects are not properly destroyed"
+      severity: HIGH
+      references:
+        - "https://github.com/advisories/GHSA-xxh7-fcf3-rj7f"
+        - "https://github.com/jetty/jetty.project/issues/14260"
+        - "https://gitlab.eclipse.org/security/cve-assignment/-/issues/79"
+      category: security
+      cwe:
+        - "CWE-401: Missing Release of Memory after Effective Lifetime"
+      owasp:
+        - "A06:2021 - Vulnerable and Outdated Components"
+    message: "Memory leak vulnerability detected in Jetty GzipHandler implementation. GzipRequest objects with inflated content may not have destroy() called when deflation is not needed, causing Inflator objects to leak native memory and potentially crash the JVM with OOME. Ensure GzipRequest.destroy() is called in all code paths, wrap callbacks properly when GzipRequest is created, or upgrade to a patched version of Jetty."
+    languages:
+      - python
+    severity: ERROR
+    pattern-either:
+      - pattern: |
+          class $CLASS:
+              ...
+              def handle(self, ...):
+                  ...
+                  $GZIP_REQUEST = GzipRequest(...)
+                  ...
+                  if $CONDITION:
+                      ...
+                  else:
+                      $GZIP_REQUEST.destroy()
+      - pattern: |
+          def $FUNC(...):
+              ...
+              $GZIP_REQUEST = GzipRequest(...)
+              ...
+              if $HANDLER.handle(...):
+                  ...
+              else:
+                  $GZIP_REQUEST.destroy()
+      - pattern: |
+          $GZIP_REQUEST = GzipRequest(...)
+          ...
+          if $DEFLATION_NEEDED:
+              $CALLBACK = GzipResponseAndCallback(...)
+          ...
+          return $HANDLER.handle(...)
+      - pattern: |
+          class GzipHandler:
+              ...
+              def handle(self, ...):
+                  ...
+                  $GZIP_REQUEST = GzipRequest(...)
+                  ...
+                  if $INFLATION and $DEFLATION:
+                      $CALLBACK = GzipResponseAndCallback(...)
+                  ...
+    pattern-not-inside: |
+      try:
+          ...
+          $GZIP_REQUEST = GzipRequest(...)
+          ...
+      finally:
+          $GZIP_REQUEST.destroy()
+    pattern-not-inside: |
+      with $CONTEXT:
+          ...
+          $GZIP_REQUEST = GzipRequest(...)
+          ...
+          $GZIP_REQUEST.destroy()
