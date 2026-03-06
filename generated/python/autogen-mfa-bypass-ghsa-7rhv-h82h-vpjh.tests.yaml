@@ -1,0 +1,114 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-7rhv-h82h-vpjh
+# Rule:      autogen-mfa-bypass-ghsa-7rhv-h82h-vpjh.yaml
+# Language:  python
+# Grade:     C (50/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: 1/2 caught
+
+# TP-1: 2FA setup route accessible without requiring current 2FA verification
+# Accuracy result: MISS ❌
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+
+# Vulnerable: 2FA setup accessible without 2FA verification
+@login_required
+def two_factor_auth_set(request):
+    if request.method == 'POST':
+        # Direct access to 2FA reconfiguration without current 2FA check
+        secret_key = generate_secret_key()
+        request.user.two_factor_secret = secret_key
+        request.user.save()
+        return redirect('admin_dashboard')
+# ruleid: autogen-mfa-bypass-ghsa-7rhv-h82h-vpjh
+    return render(request, 'admin/two_factor_setup.html')
+
+# TP-2: 2FA configuration route excluded from authentication checks allowing bypass
+# Accuracy result: PASS ✅
+class TwoFactorAuthController:
+    def __init__(self):
+        self.excluded_routes = [
+            'admin_login',
+            'admin_two_factor_auth_set',  # Vulnerable: 2FA setup excluded from 2FA check
+            'password_reset'
+        ]
+    
+    def requires_two_factor(self, route_name):
+        return route_name not in self.excluded_routes
+    
+    def set_two_factor(self, user, new_secret):
+        # Allows overwriting existing 2FA without verification
+        user.two_factor_secret = new_secret
+# ruleid: autogen-mfa-bypass-ghsa-7rhv-h82h-vpjh
+        user.save()
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: 2/2 clean
+
+# FP-1: 2FA setup properly requires current 2FA verification before allowing changes
+# Accuracy result: CLEAN ✅
+# ok: from django.shortcuts import render, redirect
+# ok: from django.contrib.auth.decorators import login_required
+# ok: 
+# ok: @login_required
+# ok: def two_factor_auth_set(request):
+# ok:     # Safe: Requires current 2FA verification before reconfiguration
+# ok:     if not verify_current_two_factor(request):
+# ok:         return redirect('two_factor_verify')
+# ok:     
+# ok:     if request.method == 'POST':
+# ok:         secret_key = generate_secret_key()
+# ok:         request.user.two_factor_secret = secret_key
+# ok:         request.user.save()
+# ok:         return redirect('admin_dashboard')
+# ok:     return render(request, 'admin/two_factor_setup.html')
+
+# FP-2: Secure implementation that requires 2FA verification before allowing reconfiguration
+# Accuracy result: CLEAN ✅
+# ok: class SecureTwoFactorController:
+# ok:     def __init__(self):
+# ok:         self.excluded_routes = [
+# ok:             'admin_login',
+# ok:             'password_reset'  # Safe: 2FA setup not excluded
+# ok:         ]
+# ok:     
+# ok:     def set_two_factor(self, user, new_secret):
+# ok:         # Safe: Checks if user already has 2FA and requires verification
+# ok:         if user.has_two_factor_enabled():
+# ok:             if not self.verify_current_two_factor(user):
+# ok:                 raise AuthenticationError('Current 2FA verification required')
+# ok:         user.two_factor_secret = new_secret
+# ok:         user.save()
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: Conditional 2FA setup logic - vulnerability depends on runtime configuration and first-time vs existing user handling → SILENT
+# class TwoFactorAuthMiddleware:
+#     def __init__(self):
+#         # Edge case: 2FA setup route conditionally excluded
+#         self.excluded_routes = get_excluded_routes_from_config()
+#     
+#     def two_factor_setup(self, request):
+#         # Ambiguous: depends on runtime configuration
+#         if request.user.is_first_time_setup:
+#             # Initial setup - no existing 2FA to verify
+#             return self.create_new_two_factor(request)
+#         else:
+#             # Existing user - should require verification but logic unclear
+#             return self.update_two_factor(request)
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   C 🟠
+# Score:   50/100
+# TP rate: 50% (1/2)
+# FP rate: 0% (0/2 false alarms)
+# Edges:   0/1 fired
