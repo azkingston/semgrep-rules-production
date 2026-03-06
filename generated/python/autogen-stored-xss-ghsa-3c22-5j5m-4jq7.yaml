@@ -1,0 +1,97 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-3c22-5j5m-4jq7
+# Language:    python
+# Grade:       F (0/100)
+# TP Rate:     0%
+# FP Rate:     0%
+# Attempts:    1 of 3
+# Generated:   2026-03-06T03:23:49.933Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-stored-xss-ghsa-3c22-5j5m-4jq7
+    version: 1.0.0
+    metadata:
+      description: "Detects stored XSS vulnerability where SVG files are served without proper content type restrictions or script sanitization in hotlinking functionality"
+      severity: HIGH
+      references:
+        - "https://github.com/advisories/GHSA-3c22-5j5m-4jq7"
+        - "https://cwe.mitre.org/data/definitions/79.html"
+      category: security
+      cwe:
+        - "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      owasp:
+        - "A03:2021 - Injection"
+    message: "Stored XSS vulnerability detected: SVG files are being served through hotlinking functionality without proper script sanitization or content type restrictions, allowing authenticated attackers to execute arbitrary JavaScript through malicious SVG uploads. This can lead to session hijacking, CSRF token theft, and unauthorized actions. Fix by: 1) Set Content-Type to 'image/svg+xml' and X-Content-Type-Options to 'nosniff' for SVG files, 2) Sanitize SVG content to remove script tags and event handlers, 3) Serve user-uploaded content from a separate domain, 4) Implement Content Security Policy (CSP) to block inline scripts, 5) Validate SVG files against a strict allowlist of safe elements and attributes."
+    languages:
+      - python
+    severity: ERROR
+    pattern-either:
+      - pattern: |
+          def $FUNC(...):
+              ...
+              if $FILENAME.endswith('.svg'):
+                  ...
+                  return send_file($PATH, ...)
+      - pattern: |
+          def $FUNC(...):
+              ...
+              if $MIMETYPE == 'image/svg+xml':
+                  ...
+                  return Response($SVG_CONTENT, mimetype='image/svg+xml')
+      - pattern: |
+          @$APP.route("/hotlink/<$ID>")
+          def $FUNC($ID):
+              ...
+              $FILE = $DB.query(...).filter(...$ID...).first()
+              ...
+              return send_file($FILE.path, ...)
+      - pattern: |
+          def serve_hotlink($ID):
+              ...
+              $FILE_PATH = get_file_path($ID)
+              ...
+              return send_file($FILE_PATH, as_attachment=False)
+      - pattern: |
+          def $FUNC(...):
+              ...
+              with open($SVG_PATH, 'r') as $F:
+                  $SVG_CONTENT = $F.read()
+              ...
+              return Response($SVG_CONTENT, mimetype='image/svg+xml')
+      - pattern: |
+          def create_hotlink(...):
+              ...
+              $HOTLINK_URL = url_for('serve_file', file_id=$FILE_ID)
+              ...
+              return $HOTLINK_URL
+      - pattern: |
+          def $FUNC(...):
+              ...
+              if $FILE.content_type.startswith('image/svg'):
+                  ...
+                  return send_from_directory($DIR, $FILENAME)
+      - pattern: |
+          @$APP.route("/files/<$ID>")
+          def $FUNC($ID):
+              ...
+              $FILE_INFO = get_uploaded_file($ID)
+              ...
+              return send_file($FILE_INFO['path'], mimetype=$FILE_INFO['type'])
+    pattern-not-inside: |
+      def $FUNC(...):
+          ...
+          $SANITIZED_SVG = sanitize_svg($SVG_CONTENT)
+          ...
+          return Response($SANITIZED_SVG, ...)
+    pattern-not-inside: |
+      def $FUNC(...):
+          ...
+          $HEADERS = {'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "script-src 'none'"}
+          ...
+          return send_file($PATH, headers=$HEADERS)
+    pattern-not-inside: |
+      def $FUNC(...):
+          ...
+          if '<script' in $SVG_CONTENT or 'javascript:' in $SVG_CONTENT:
+              return abort(400)
+          ...
