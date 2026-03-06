@@ -1,0 +1,87 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-x9p5-w45c-7ffc
+# Language:  python
+# Grade:     F (0/100) 🔴
+# TP Rate:   0%
+# FP Rate:   0%
+# Attempts:  1 of 3
+# Generated: 2026-03-06T08:49:22.918Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-information-disclosure-ghsa-x9p5-w45c-7ffc
+    message: "Access tokens exposed through URL parameters: authentication code accepts tokens via query parameters 'token' or 'access_token' which can leak through logs, browser history, and referrer headers. This allows token reuse until revocation and exposes credentials. Fix by: 1) Use Authorization headers exclusively for token transmission, 2) Remove query parameter token handling from authentication code, 3) Block token parameters at proxy/WAF level, 4) Scrub query strings from logs, 5) Set strict referrer policy."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cve: GHSA-x9p5-w45c-7ffc
+      cwe: "CWE-200: Information Exposure"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: MEDIUM
+      references:
+        - https://github.com/gogs/gogs/security/advisories/GHSA-x9p5-w45c-7ffc
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: $TOKEN = $REQUEST.args.get("token")
+              - pattern: $TOKEN = $REQUEST.args.get("access_token")
+          - pattern-inside: |
+              def $FUNC(...):
+                ...
+                if $TOKEN:
+                  $AUTH = $AUTHENTICATE($TOKEN)
+                  ...
+          - focus-metavariable: $TOKEN
+      - patterns:
+          - pattern-either:
+              - pattern: $TOKEN = request.args.get("token")
+              - pattern: $TOKEN = request.args.get("access_token")
+          - pattern-inside: |
+              def $FUNC(...):
+                ...
+                if $TOKEN:
+                  $AUTH_RESULT = authenticate($TOKEN)
+                  ...
+          - focus-metavariable: $TOKEN
+      - patterns:
+          - pattern-either:
+              - pattern: $TOKEN = $CTX.query("token")
+              - pattern: $TOKEN = $CTX.query("access_token")
+          - pattern-inside: |
+              def $FUNC(...):
+                ...
+                if $TOKEN:
+                  $USER = authenticate_token($TOKEN)
+                  ...
+          - focus-metavariable: $TOKEN
+      - patterns:
+          - pattern-either:
+              - pattern: $TOKEN = $REQUEST.args.get("token") or $REQUEST.headers.get($HEADER)
+              - pattern: $TOKEN = $REQUEST.args.get("access_token") or $REQUEST.headers.get($HEADER)
+          - pattern-inside: |
+              def authenticate_request($REQUEST):
+                ...
+          - focus-metavariable: $TOKEN
+      - patterns:
+          - pattern: |
+              def get_auth_token($REQUEST):
+                ...
+                $TOKEN = $REQUEST.args.get($PARAM)
+                ...
+                return $TOKEN
+          - metavariable-regex:
+              metavariable: $PARAM
+              regex: (token|access_token)
+          - focus-metavariable: $TOKEN
+      - patterns:
+          - pattern-either:
+              - pattern: if "token" in $REQUEST.args
+              - pattern: if "access_token" in $REQUEST.args
+          - pattern-inside: |
+              def $FUNC(...):
+                ...
+                $TOKEN = $REQUEST.args.get($PARAM)
+                ...
+                $AUTH = verify_token($TOKEN)
+                ...
+          - focus-metavariable: $TOKEN
