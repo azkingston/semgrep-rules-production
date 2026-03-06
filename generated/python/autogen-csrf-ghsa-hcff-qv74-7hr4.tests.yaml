@@ -1,0 +1,90 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-hcff-qv74-7hr4
+# Rule:      autogen-csrf-ghsa-hcff-qv74-7hr4.yaml
+# Language:  python
+# Grade:     C (50/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: 1/2 caught
+
+# TP-1: Login endpoint without CSRF protection accepting form data
+# Accuracy result: PASS ✅
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.form.get('username')
+    password = request.form.get('password')
+    if authenticate(username, password):
+        session['user_id'] = username
+        return redirect('/dashboard')
+# ruleid: autogen-csrf-ghsa-hcff-qv74-7hr4
+    return 'Login failed'
+
+# TP-2: Django login handler without CSRF token validation
+# Accuracy result: MISS ❌
+def handle_login(request):
+    user = request.POST.get('username')
+    pwd = request.POST.get('password')
+    if verify_credentials(user, pwd):
+        request.session['authenticated'] = True
+        request.session['user'] = user
+        return HttpResponseRedirect('/home')
+# ruleid: autogen-csrf-ghsa-hcff-qv74-7hr4
+    return HttpResponse('Invalid credentials')
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: 2/2 clean
+
+# FP-1: Login endpoint with explicit CSRF token verification
+# Accuracy result: CLEAN ✅
+# ok: @app.route('/login', methods=['POST'])
+# ok: @csrf.exempt
+# ok: def login():
+# ok:     if not verify_csrf_token(request.form.get('csrf_token')):
+# ok:         abort(403)
+# ok:     username = request.form.get('username')
+# ok:     password = request.form.get('password')
+# ok:     if authenticate(username, password):
+# ok:         session['user_id'] = username
+# ok:         return redirect('/dashboard')
+# ok:     return 'Login failed'
+
+# FP-2: Django login with built-in CSRF protection decorator
+# Accuracy result: CLEAN ✅
+# ok: @require_http_methods(['POST'])
+# ok: @csrf_protect
+# ok: def django_login(request):
+# ok:     username = request.POST.get('username')
+# ok:     password = request.POST.get('password') 
+# ok:     user = authenticate(username=username, password=password)
+# ok:     if user:
+# ok:         login(request, user)
+# ok:         return redirect('dashboard')
+# ok:     return render(request, 'login.html', {'error': 'Invalid credentials'})
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: API login using JWT tokens - may not need traditional CSRF protection but still creates session → SILENT
+# @app.route('/api/login', methods=['POST'])
+# def api_login():
+#     auth_header = request.headers.get('Authorization')
+#     if auth_header and auth_header.startswith('Bearer '):
+#         token = auth_header[7:]
+#         if validate_jwt(token):
+#             session['user_id'] = get_user_from_token(token)
+#             return jsonify({'status': 'success'})
+#     return jsonify({'error': 'Invalid token'}), 401
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   C 🟠
+# Score:   50/100
+# TP rate: 50% (1/2)
+# FP rate: 0% (0/2 false alarms)
+# Edges:   0/1 fired
