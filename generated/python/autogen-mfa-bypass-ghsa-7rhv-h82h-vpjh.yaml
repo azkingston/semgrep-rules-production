@@ -1,0 +1,99 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-7rhv-h82h-vpjh
+# Language:  python
+# Grade:     C (50/100) 🟠
+# TP Rate:   50%
+# FP Rate:   0%
+# Attempts:  2 of 3
+# Generated: 2026-03-06T08:44:03.227Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-mfa-bypass-ghsa-7rhv-h82h-vpjh
+    message: "MFA bypass vulnerability detected: 2FA settings routes are excluded from authentication checks or allow reconfiguration without proper MFA verification. This allows attackers with compromised credentials to bypass 2FA by directly accessing settings endpoints and overwriting existing configurations. Fix by: 1) Remove 2FA settings routes from authentication bypass lists, 2) Require current MFA verification before allowing reconfiguration, 3) Implement proper access controls for sensitive MFA operations, 4) Add authentication checks to two_factor_auth_set endpoints."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cve: GHSA-7rhv-h82h-vpjh
+      cwe: "CWE-287: Improper Authentication"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+      references:
+        - https://github.com/EC-CUBE/ec-cube/security/advisories/GHSA-7rhv-h82h-vpjh
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  $EXCLUDED_ROUTES = [
+                      ...,
+                      $ROUTE,
+                      ...
+                  ]
+              - pattern: |
+                  $EXCLUDED_ROUTES = (
+                      ...,
+                      $ROUTE,
+                      ...
+                  )
+              - pattern: |
+                  $BYPASS_ROUTES.append($ROUTE)
+              - pattern: |
+                  $NO_AUTH_ROUTES = [..., $ROUTE, ...]
+          - metavariable-regex:
+              metavariable: $ROUTE
+              regex: .*(two_factor_auth_set|admin_two_factor_auth_set|two_factor_auth/set|/admin/two_factor_auth/set).*
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  @route("/admin/two_factor_auth/set", ...)
+                  def $FUNC(...):
+                      ...
+                      $USER.two_factor_secret = $NEW_SECRET
+                      ...
+              - pattern: |
+                  @app.route("/admin/two_factor_auth/set", ...)
+                  def $FUNC(...):
+                      ...
+                      $USER.mfa_secret = $NEW_SECRET
+                      ...
+              - pattern: |
+                  def set_two_factor_auth(...):
+                      ...
+                      $SECRET = generate_secret_key()
+                      ...
+                      save_secret($SECRET)
+                      ...
+              - pattern: |
+                  def configure_two_factor(...):
+                      ...
+                      if request.method == "POST":
+                          ...
+                          $USER.two_factor_secret = $NEW_SECRET
+                          ...
+          - pattern-not-inside: |
+              def $FUNC(...):
+                  ...
+                  if not verify_current_mfa($USER, $CODE):
+                      ...
+                  ...
+          - pattern-not-inside: |
+              def $FUNC(...):
+                  ...
+                  require_mfa_verification(...)
+                  ...
+          - pattern-not-inside: |
+              def $FUNC(...):
+                  ...
+                  if $USER.has_mfa_enabled and not validate_current_mfa(...):
+                      ...
+                  ...
+      - patterns:
+          - pattern: |
+              if $ROUTE_CHECK:
+                  return $BYPASS
+          - metavariable-regex:
+              metavariable: $ROUTE_CHECK
+              regex: .*(two_factor_auth_set|admin_two_factor_auth_set).*
+          - metavariable-regex:
+              metavariable: $BYPASS
+              regex: .*(True|None|skip|bypass).*
