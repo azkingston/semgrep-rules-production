@@ -1,0 +1,66 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-fpx8-73gf-7x73
+# Language:  python
+# Grade:     C (50/100) 🟠
+# TP Rate:   50%
+# FP Rate:   0%
+# Attempts:  2 of 3
+# Generated: 2026-03-06T07:59:06.570Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-ssrf-ghsa-fpx8-73gf-7x73
+    message: "SSRF vulnerability detected due to incomplete IP validation in webhook URL validation. The code only checks for loopback addresses but allows private network ranges (10.x.x.x, 172.16.x.x, 192.168.x.x, 169.254.x.x) which can be exploited for cloud metadata access, internal service scanning, and data exfiltration. Fix by: 1) Add ip.is_private check to reject RFC 1918 private networks, 2) Add ip.is_link_local check to reject 169.254.x.x addresses, 3) Add validation for IPv4-mapped IPv6 addresses (::ffff:), 4) Consider rejecting multicast and reserved ranges with ip.is_multicast and ip.is_reserved."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cve: GHSA-fpx8-73gf-7x73
+      cwe: "CWE-918: Server-Side Request Forgery (SSRF)"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+      references:
+        - "https://github.com/advisories/GHSA-fpx8-73gf-7x73"
+        - "https://cwe.mitre.org/data/definitions/918.html"
+        - "https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/"
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $IP = ipaddress.ip_address($HOST)
+              ...
+              if $IP.is_loopback:
+                  raise $EXCEPTION(...)
+          - pattern: |
+              $IP = ipaddress.ip_address($HOST)
+              ...
+              if not $IP.is_loopback:
+                  ...
+              else:
+                  raise $EXCEPTION(...)
+          - pattern: |
+              def validate($FIELD, ...):
+                  ...
+                  $IP = ipaddress.ip_address($PARSED_URL.hostname)
+                  ...
+                  if $IP.is_loopback:
+                      raise $EXCEPTION(...)
+                  ...
+      - pattern-inside: |
+          def $FUNC(...):
+              ...
+              $PARSED_URL = urlparse($URL)
+              ...
+      - pattern-not-inside: |
+          if $IP.is_loopback or $IP.is_private:
+              ...
+      - pattern-not-inside: |
+          if $IP.is_loopback or $IP.is_link_local:
+              ...
+      - pattern-not-inside: |
+          if $IP.is_loopback or $IP.is_private or $IP.is_link_local:
+              ...
+      - pattern-not-inside: |
+          if $IP.is_private or $IP.is_loopback:
+              ...
+      - pattern-not-inside: |
+          if $IP.is_link_local or $IP.is_loopback:
+              ...
