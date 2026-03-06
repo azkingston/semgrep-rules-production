@@ -1,0 +1,96 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-73hc-m4hx-79pj
+# Language:  python
+# Grade:     A (100/100) 🟢
+# TP Rate:   100%
+# FP Rate:   0%
+# Attempts:  1 of 3
+# Generated: 2026-03-06T08:40:37.672Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-information-disclosure-ghsa-73hc-m4hx-79pj
+    message: "Information disclosure vulnerability detected in health endpoint. The endpoint exposes sensitive system information including OS version, Python version, CPU count, memory details, disk usage, and database paths without proper authentication. This enables OS fingerprinting, resource enumeration, and path disclosure for reconnaissance attacks. Fix by: 1) Remove sensitive system details from health endpoints, 2) Require authentication for detailed health information using require_write_access or require_admin_access, 3) Avoid exposing database_path or other filesystem details, 4) Bind to 127.0.0.1 instead of 0.0.0.0 by default."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cve: GHSA-73hc-m4hx-79pj
+      cwe: "CWE-200: Information Exposure"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: MEDIUM
+      references:
+        - "https://github.com/advisories/GHSA-73hc-m4hx-79pj"
+        - "https://cwe.mitre.org/data/definitions/200.html"
+    pattern-either:
+      - patterns:
+          - pattern: |
+              $DICT = {
+                  ...,
+                  "platform": platform.system(),
+                  ...,
+                  "platform_version": platform.version(),
+                  ...
+              }
+          - pattern-inside: |
+              def $FUNC(...):
+                  ...
+          - pattern-not-inside: |
+              def $FUNC(..., user: $TYPE = Depends(require_write_access)):
+                  ...
+          - pattern-not-inside: |
+              def $FUNC(..., user: $TYPE = Depends(require_admin_access)):
+                  ...
+      - patterns:
+          - pattern: |
+              $DICT = {
+                  ...,
+                  "python_version": platform.python_version(),
+                  ...,
+                  "cpu_count": psutil.cpu_count(),
+                  ...
+              }
+          - pattern-inside: |
+              def $FUNC(...):
+                  ...
+          - pattern-not-inside: |
+              def $FUNC(..., user: $TYPE = Depends(require_write_access)):
+                  ...
+          - pattern-not-inside: |
+              def $FUNC(..., user: $TYPE = Depends(require_admin_access)):
+                  ...
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  if hasattr($STORAGE, 'db_path'):
+                      $DICT["database_path"] = $STORAGE.db_path
+              - pattern: |
+                  $DICT["database_path"] = $STORAGE.db_path
+              - pattern: |
+                  storage_info["database_path"] = $STORAGE.db_path
+          - pattern-inside: |
+              def $FUNC(...):
+                  ...
+          - pattern-not-inside: |
+              def $FUNC(..., user: $TYPE = Depends(require_write_access)):
+                  ...
+          - pattern-not-inside: |
+              def $FUNC(..., user: $TYPE = Depends(require_admin_access)):
+                  ...
+      - patterns:
+          - pattern: |
+              $DICT = {
+                  ...,
+                  "memory_total_gb": ...,
+                  ...,
+                  "disk_total_gb": ...,
+                  ...
+              }
+          - pattern-inside: |
+              def $FUNC(...):
+                  ...
+          - pattern-not-inside: |
+              def $FUNC(..., user: $TYPE = Depends(require_write_access)):
+                  ...
+          - pattern-not-inside: |
+              def $FUNC(..., user: $TYPE = Depends(require_admin_access)):
+                  ...
