@@ -1,0 +1,60 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-g962-2j28-3cg9
+# Language:    python
+# Grade:       F (0/100)
+# TP Rate:     0%
+# FP Rate:     0%
+# Attempts:    1 of 3
+# Generated:   2026-03-06T03:18:04.059Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-jwt-audience-validation-bypass-ghsa-g962-2j28-3cg9
+    version: 1.0.0
+    metadata:
+      description: "Detects JWT audience validation bypass where jwt.decode() is called without audience verification in local key or HMAC modes"
+      severity: HIGH
+      references:
+        - "https://github.com/advisories/GHSA-g962-2j28-3cg9"
+        - "https://cwe.mitre.org/data/definitions/287.html"
+      category: security
+      cwe:
+        - "CWE-287: Improper Authentication"
+      owasp:
+        - "A02:2021 - Cryptographic Failures"
+    message: "JWT audience validation bypass detected: JWT tokens are being parsed without verifying the audience claim when using local keys or HMAC secrets. This allows authentication using tokens intended for different audiences/services. Fix by adding audience parameter to jwt.decode() call or using jwt.decode(token, key, algorithms=[...], audience=expected_audience) to enforce audience validation."
+    languages:
+      - python
+    severity: ERROR
+    pattern-either:
+      - pattern: |
+          jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS)
+      - pattern: |
+          jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS, options=$OPTIONS)
+      - pattern: |
+          jwt.decode($TOKEN, key=$KEY, algorithms=$ALGORITHMS)
+      - pattern: |
+          jwt.decode($TOKEN, key=$KEY, algorithms=$ALGORITHMS, options=$OPTIONS)
+      - pattern: |
+          $DECODED = jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS)
+      - pattern: |
+          $DECODED = jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS, options=$OPTIONS)
+      - pattern: |
+          return jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS)
+      - pattern: |
+          return jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS, options=$OPTIONS)
+    pattern-not-inside: |
+      jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS, audience=$AUD, ...)
+    pattern-not-inside: |
+      jwt.decode($TOKEN, key=$KEY, algorithms=$ALGORITHMS, audience=$AUD, ...)
+    pattern-not-inside: |
+      jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS, options={..., "verify_aud": True, ...}, audience=$AUD)
+    pattern-not-inside: |
+      jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS, audience=$AUDIENCE)
+    pattern-not-inside: |
+      if $PAYLOAD.get("aud") == $EXPECTED_AUD:
+          ...
+          jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS)
+    pattern-not-inside: |
+      if $PAYLOAD["aud"] == $EXPECTED_AUD:
+          ...
+          jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS)
