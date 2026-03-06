@@ -1,0 +1,43 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-573f-x89g-hqp9
+# Language:  javascript
+# Grade:     F (25/100) 🔴
+# TP Rate:   50%
+# FP Rate:   50%
+# Attempts:  1 of 3
+# Generated: 2026-03-06T08:00:58.403Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-improper-input-validation-ghsa-573f-x89g-hqp9
+    message: >-
+      Fastify content-type validation vulnerability detected. The regex pattern for content-type validation is missing an end anchor ($),
+      allowing malformed Content-Type headers with trailing garbage to pass validation. This can lead to requests being processed by
+      unintended parsers. Fix by adding an end anchor to the regex pattern (e.g., change /application\/json/i to /^application\/json$/i)
+      or upgrade Fastify to version 5.8.1 or later where this issue is resolved.
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      cve: GHSA-573f-x89g-hqp9
+      cwe: "CWE-20: Improper Input Validation"
+      confidence: HIGH
+      likelihood: MEDIUM
+      impact: MEDIUM
+      references:
+        - "https://github.com/advisories/GHSA-573f-x89g-hqp9"
+        - "https://cwe.mitre.org/data/definitions/20.html"
+        - "https://httpwg.org/specs/rfc9110.html#field.content-type"
+    patterns:
+      - pattern-either:
+          - pattern: $APP.addContentTypeParser($REGEX, ...)
+          - pattern: $FASTIFY.addContentTypeParser($REGEX, ...)
+          - pattern: fastify.addContentTypeParser($REGEX, ...)
+          - pattern: $INSTANCE.addContentTypeParser($REGEX, ...)
+      - metavariable-pattern:
+          metavariable: $REGEX
+          patterns:
+            - pattern-either:
+                - pattern-regex: "^/.+/[gimsuxy]*$"
+                - pattern: new RegExp($PATTERN, ...)
+            - pattern-not-regex: ".*\\$$"
+            - pattern-not-regex: ".*\\$[gimsuxy]*$"
+      - focus-metavariable: $REGEX
