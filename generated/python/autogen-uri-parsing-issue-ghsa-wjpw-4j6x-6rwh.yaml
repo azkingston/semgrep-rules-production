@@ -5,11 +5,11 @@
 # TP Rate:   0%
 # FP Rate:   0%
 # Attempts:  1 of 3
-# Generated: 2026-03-06T08:00:24.216Z
+# Generated: 2026-03-06T08:41:11.568Z
 # ═══════════════════════════════════════════════════
 rules:
   - id: autogen-uri-parsing-issue-ghsa-wjpw-4j6x-6rwh
-    message: "URI parsing vulnerability detected in Eclipse Jetty HTTP usage. Jetty parses invalid URIs differently from other parsers (invalid schemes, improper IPv4-mapped IPv6 addresses, incorrect delimiter priorities), which can lead to security bypass through differential parsing in multi-component systems. Fix by: 1) Upgrade to patched Jetty versions (12.1.5+, 12.0.31+), 2) Implement strict URI validation using standard libraries before passing to Jetty, 3) Use multiple URI parsers for validation consistency, 4) Avoid relying on Jetty URI parsing for security decisions."
+    message: "URI parsing vulnerability detected in Jetty HTTP integration. Jetty parses invalid URIs differently from other parsers (invalid schemes, improper IPv4-mapped IPv6 addresses, incorrect delimiter priorities), which can lead to security bypass through differential parsing in multi-component systems. Fix by: 1) Upgrade to patched Jetty versions (12.1.5+, 12.0.31+), 2) Implement strict URI validation using standard libraries before passing to Jetty, 3) Use multiple URI parsers for validation consistency, 4) Avoid relying on Jetty URI parsing for security decisions."
     languages: [python]
     severity: WARNING
     metadata:
@@ -26,44 +26,20 @@ rules:
           - pattern-inside: |
               import py4j
               ...
-          - pattern: $GATEWAY.$JETTY_CLASS.HttpURI($URI)
-          - patterns:
-              - focus-metavariable: $URI
-      - patterns:
-          - pattern-inside: |
-              import py4j
-              ...
-          - pattern: $GATEWAY.$JETTY_CLASS.URI($URI)
-          - patterns:
-              - focus-metavariable: $URI
+          - pattern: $GATEWAY.jvm.org.eclipse.jetty.http.HttpURI($URI)
+          - focus-metavariable: $URI
       - patterns:
           - pattern-inside: |
               from py4j.java_gateway import JavaGateway
               ...
-          - pattern: $GATEWAY.jvm.$JETTY_PKG.HttpURI($URI)
-          - patterns:
-              - focus-metavariable: $URI
-      - patterns:
-          - pattern-inside: |
-              from py4j.java_gateway import JavaGateway
-              ...
-          - pattern: $GATEWAY.jvm.$JETTY_PKG.URI.create($URI)
-          - patterns:
-              - focus-metavariable: $URI
+          - pattern: $GATEWAY.jvm.org.eclipse.jetty.http.HttpURI.from($URI)
+          - focus-metavariable: $URI
       - patterns:
           - pattern-inside: |
               import jpype
               ...
-          - pattern: jpype.$JETTY_PKG.HttpURI($URI)
-          - patterns:
-              - focus-metavariable: $URI
-      - patterns:
-          - pattern-inside: |
-              import jpype
-              ...
-          - pattern: jpype.$JETTY_PKG.URI.create($URI)
-          - patterns:
-              - focus-metavariable: $URI
+          - pattern: jpype.org.eclipse.jetty.http.HttpURI($URI)
+          - focus-metavariable: $URI
       - patterns:
           - pattern-inside: |
               from jnius import autoclass
@@ -71,8 +47,7 @@ rules:
               $URI_CLASS = autoclass('org.eclipse.jetty.http.HttpURI')
               ...
           - pattern: $URI_CLASS($URI)
-          - patterns:
-              - focus-metavariable: $URI
+          - focus-metavariable: $URI
       - patterns:
           - pattern-inside: |
               from jnius import autoclass
@@ -80,20 +55,43 @@ rules:
               $URI_CLASS = autoclass('org.eclipse.jetty.util.URIUtil')
               ...
           - pattern: $URI_CLASS.canonicalPath($URI)
-          - patterns:
-              - focus-metavariable: $URI
+          - focus-metavariable: $URI
+      - patterns:
+          - pattern-inside: |
+              import subprocess
+              ...
+          - pattern: subprocess.run(["java", "-cp", $JETTY_CP, $MAIN_CLASS, $URI], ...)
+          - focus-metavariable: $URI
+      - patterns:
+          - pattern: requests.get($URI, ...)
+          - metavariable-regex:
+              metavariable: $URI
+              regex: .*(\[.*@.*\]|https?>://|://.*\?@|://.*#@).*
+          - focus-metavariable: $URI
+      - patterns:
+          - pattern: urllib.request.urlopen($URI, ...)
+          - metavariable-regex:
+              metavariable: $URI
+              regex: .*(\[.*@.*\]|https?>://|://.*\?@|://.*#@).*
+          - focus-metavariable: $URI
+      - patterns:
+          - pattern: httpx.get($URI, ...)
+          - metavariable-regex:
+              metavariable: $URI
+              regex: .*(\[.*@.*\]|https?>://|://.*\?@|://.*#@).*
+          - focus-metavariable: $URI
     pattern-not-inside: |
       import urllib.parse
       ...
       $PARSED = urllib.parse.urlparse($URI)
       ...
       if $PARSED.scheme not in ['http', 'https']:
-          ...
+          raise ValueError(...)
     pattern-not-inside: |
       import re
       ...
       if not re.match(r'^https?://[a-zA-Z0-9.-]+(/.*)?$', $URI):
-          ...
+          raise ValueError(...)
     pattern-not-inside: |
       def validate_uri($URI):
           ...
