@@ -5,7 +5,7 @@
 # TP Rate:   0%
 # FP Rate:   0%
 # Attempts:  1 of 3
-# Generated: 2026-03-06T07:57:47.115Z
+# Generated: 2026-03-06T08:38:41.089Z
 # ═══════════════════════════════════════════════════
 rules:
   - id: autogen-server-side-request-forgery-ssrf-ghsa-595m-wc8g-6qgc
@@ -34,6 +34,7 @@ rules:
           - pattern: flask.request.args.get(...)
           - pattern: flask.request.form.get(...)
           - pattern: flask.request.json
+          - pattern: flask.request.get_json()
     pattern-sinks:
       - patterns:
           - pattern-either:
@@ -41,32 +42,52 @@ rules:
               - pattern: requests.post($URL, ...)
               - pattern: requests.put($URL, ...)
               - pattern: requests.patch($URL, ...)
+              - pattern: requests.delete($URL, ...)
+              - pattern: requests.head($URL, ...)
+              - pattern: requests.options($URL, ...)
               - pattern: requests.request($METHOD, $URL, ...)
               - pattern: urllib.request.urlopen($URL, ...)
               - pattern: urllib.request.urlretrieve($URL, ...)
+              - pattern: urllib2.urlopen($URL, ...)
               - pattern: httpx.get($URL, ...)
               - pattern: httpx.post($URL, ...)
+              - pattern: httpx.put($URL, ...)
+              - pattern: httpx.patch($URL, ...)
+              - pattern: httpx.delete($URL, ...)
+              - pattern: httpx.head($URL, ...)
               - pattern: httpx.request($METHOD, $URL, ...)
+              - pattern: $SESSION.get($URL, ...)
+              - pattern: $SESSION.post($URL, ...)
+              - pattern: $SESSION.request($METHOD, $URL, ...)
               - pattern: $CLIENT.get($URL, ...)
               - pattern: $CLIENT.post($URL, ...)
               - pattern: $CLIENT.request($METHOD, $URL, ...)
+          - pattern-not-either:
+              - pattern: requests.get($URL, allow_redirects=False, ...)
+              - pattern: requests.post($URL, allow_redirects=False, ...)
+              - pattern: requests.put($URL, allow_redirects=False, ...)
+              - pattern: requests.patch($URL, allow_redirects=False, ...)
+              - pattern: requests.delete($URL, allow_redirects=False, ...)
+              - pattern: requests.head($URL, allow_redirects=False, ...)
+              - pattern: requests.options($URL, allow_redirects=False, ...)
+              - pattern: requests.request($METHOD, $URL, allow_redirects=False, ...)
+              - pattern: httpx.get($URL, follow_redirects=False, ...)
+              - pattern: httpx.post($URL, follow_redirects=False, ...)
+              - pattern: httpx.put($URL, follow_redirects=False, ...)
+              - pattern: httpx.patch($URL, follow_redirects=False, ...)
+              - pattern: httpx.delete($URL, follow_redirects=False, ...)
+              - pattern: httpx.head($URL, follow_redirects=False, ...)
+              - pattern: httpx.request($METHOD, $URL, follow_redirects=False, ...)
+              - pattern: $SESSION.get($URL, allow_redirects=False, ...)
+              - pattern: $SESSION.post($URL, allow_redirects=False, ...)
+              - pattern: $SESSION.request($METHOD, $URL, allow_redirects=False, ...)
           - focus-metavariable: $URL
     pattern-sanitizers:
       - pattern: validate_url($INPUT)
       - pattern: sanitize_url($INPUT)
       - pattern: url_validator($INPUT)
       - pattern: check_url_safety($INPUT)
-    pattern-not-inside: |
-      requests.get($URL, allow_redirects=False, ...)
-    pattern-not-inside: |
-      requests.post($URL, allow_redirects=False, ...)
-    pattern-not-inside: |
-      requests.request($METHOD, $URL, allow_redirects=False, ...)
-    pattern-not-inside: |
-      $SESSION = requests.Session()
-      $SESSION.max_redirects = 0
-      ...
-    pattern-not-inside: |
-      httpx.get($URL, follow_redirects=False, ...)
-    pattern-not-inside: |
-      httpx.post($URL, follow_redirects=False, ...)
+      - pattern: is_safe_url($INPUT)
+      - pattern: whitelist_url($INPUT)
+      - pattern: verify_url_safety($INPUT)
+      - pattern: IsSSRFSafeURL($INPUT)
