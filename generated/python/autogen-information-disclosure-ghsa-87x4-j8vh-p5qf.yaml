@@ -1,0 +1,77 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-87x4-j8vh-p5qf
+# Language:  python
+# Grade:     F (0/100) 🔴
+# TP Rate:   0%
+# FP Rate:   0%
+# Attempts:  1 of 3
+# Generated: 2026-03-06T07:58:26.746Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-information-disclosure-ghsa-87x4-j8vh-p5qf
+    message: "Information disclosure vulnerability detected in Django REST Framework ViewSet. The endpoint allows unauthenticated access to workspace member information including email addresses, user roles, and PII. Fix by: 1) Remove AllowAny from permission_classes, 2) Add IsAuthenticated or IsOwnerOrReadOnly to require authentication, 3) Verify workspace membership before exposing member data, 4) Consider rate limiting for member endpoints."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cve: GHSA-87x4-j8vh-p5qf
+      cwe: "CWE-862: Missing Authorization"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+      references:
+        - "https://github.com/advisories/GHSA-87x4-j8vh-p5qf"
+        - "https://github.com/makeplane/plane/releases/tag/v1.2.3"
+        - "https://cwe.mitre.org/data/definitions/862.html"
+    patterns:
+      - pattern-either:
+          - pattern: |
+              class $CLASS(viewsets.$VIEWSET):
+                  ...
+                  permission_classes = [AllowAny]
+                  ...
+          - pattern: |
+              class $CLASS(viewsets.$VIEWSET):
+                  ...
+                  permission_classes = (AllowAny,)
+                  ...
+          - pattern: |
+              class $CLASS(viewsets.$VIEWSET):
+                  ...
+                  permission_classes = [permissions.AllowAny]
+                  ...
+          - pattern: |
+              class $CLASS(viewsets.$VIEWSET):
+                  ...
+                  permission_classes = (permissions.AllowAny,)
+                  ...
+          - pattern: |
+              @permission_classes([AllowAny])
+              class $CLASS(viewsets.$VIEWSET):
+                  ...
+          - pattern: |
+              @permission_classes([permissions.AllowAny])
+              class $CLASS(viewsets.$VIEWSET):
+                  ...
+      - metavariable-regex:
+          metavariable: $CLASS
+          regex: .*(Member|User|Workspace).*
+      - pattern-inside: |
+          class $CLASS(...):
+              ...
+              def list(self, ...):
+                  ...
+      - pattern-not-inside: |
+          class $CLASS(viewsets.$VIEWSET):
+              ...
+              permission_classes = [..., IsAuthenticated, ...]
+              ...
+      - pattern-not-inside: |
+          class $CLASS(viewsets.$VIEWSET):
+              ...
+              permission_classes = [..., permissions.IsAuthenticated, ...]
+              ...
+      - pattern-not-inside: |
+          class $CLASS(viewsets.$VIEWSET):
+              ...
+              permission_classes = [..., IsOwner, ...]
+              ...
