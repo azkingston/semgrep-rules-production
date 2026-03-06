@@ -1,0 +1,94 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-595m-wc8g-6qgc
+# Language:    python
+# Grade:       F (0/100)
+# TP Rate:     0%
+# FP Rate:     0%
+# Attempts:    1 of 3
+# Generated:   2026-03-06T03:11:26.174Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-server-side-request-forgery-(ssrf)-ghsa-595m-wc8g-6qgc
+    version: 1.0.0
+    metadata:
+      description: "Detects potential SSRF vulnerability via HTTP redirect bypass in URL import functionality"
+      severity: HIGH
+      references:
+        - "https://github.com/advisories/GHSA-595m-wc8g-6qgc"
+        - "https://cwe.mitre.org/data/definitions/918.html"
+        - "https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/"
+      category: security
+      cwe:
+        - "CWE-918: Server-Side Request Forgery (SSRF)"
+      owasp:
+        - "A10:2021 - Server-Side Request Forgery (SSRF)"
+    message: "Potential SSRF vulnerability detected via HTTP redirect bypass. HTTP requests are being made to user-controlled URLs without proper redirect validation, allowing attackers to bypass URL filtering by using redirects to internal services. Implement redirect validation by checking all redirect targets against the same URL restrictions as the initial URL, disable automatic redirect following, or use a custom redirect handler that validates each redirect destination."
+    languages:
+      - python
+    severity: ERROR
+    pattern-either:
+      - pattern: |
+          import requests
+          ...
+          requests.get($URL, ...)
+      - pattern: |
+          import requests
+          ...
+          requests.post($URL, ...)
+      - pattern: |
+          import requests
+          ...
+          requests.request($METHOD, $URL, ...)
+      - pattern: |
+          from requests import $FUNC
+          ...
+          $FUNC($URL, ...)
+      - pattern: |
+          import urllib.request
+          ...
+          urllib.request.urlopen($URL, ...)
+      - pattern: |
+          from urllib.request import urlopen
+          ...
+          urlopen($URL, ...)
+      - pattern: |
+          import httpx
+          ...
+          httpx.get($URL, ...)
+      - pattern: |
+          import httpx
+          ...
+          httpx.post($URL, ...)
+      - pattern: |
+          from httpx import $FUNC
+          ...
+          $FUNC($URL, ...)
+      - pattern: |
+          $CLIENT.get($URL, ...)
+      - pattern: |
+          $CLIENT.post($URL, ...)
+      - pattern: |
+          $CLIENT.request($METHOD, $URL, ...)
+    pattern-inside: |
+      def $FUNC(...):
+        ...
+        $URL = $ARG
+        ...
+    pattern-not-inside: |
+      $URL = "..."
+      ...
+    pattern-not-inside: |
+      if $VALIDATOR($URL):
+        ...
+      else:
+        ...
+    pattern-not-inside: |
+      $SESSION = requests.Session()
+      $SESSION.max_redirects = 0
+      ...
+    pattern-not-inside: |
+      requests.get($URL, allow_redirects=False, ...)
+    pattern-not-inside: |
+      requests.post($URL, allow_redirects=False, ...)
+    pattern-not-inside: |
+      requests.request($METHOD, $URL, allow_redirects=False, ...)
