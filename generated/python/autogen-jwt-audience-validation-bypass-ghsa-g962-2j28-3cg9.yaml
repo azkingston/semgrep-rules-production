@@ -1,0 +1,65 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-g962-2j28-3cg9
+# Language:  python
+# Grade:     F (0/100) 🔴
+# TP Rate:   0%
+# FP Rate:   0%
+# Attempts:  1 of 3
+# Generated: 2026-03-06T08:46:24.341Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-jwt-audience-validation-bypass-ghsa-g962-2j28-3cg9
+    message: "JWT audience validation bypass detected: JWT tokens are being decoded without verifying the audience claim. This allows authentication using tokens intended for different audiences/services. Fix by adding audience parameter to jwt.decode() call: jwt.decode(token, key, algorithms=[...], audience=expected_audience)."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cve: GHSA-g962-2j28-3cg9
+      cwe: "CWE-287: Improper Authentication"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+      references:
+        - https://github.com/OliveTin/OliveTin/security/advisories/GHSA-g962-2j28-3cg9
+    pattern-either:
+      - patterns:
+          - pattern: jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS)
+          - pattern-not-inside: |
+              jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS, audience=$AUD, ...)
+          - pattern-not-inside: |
+              if $PAYLOAD.get("aud") == $EXPECTED_AUD:
+                  ...
+                  jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS)
+          - pattern-not-inside: |
+              if $PAYLOAD["aud"] == $EXPECTED_AUD:
+                  ...
+                  jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS)
+      - patterns:
+          - pattern: jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS, options=$OPTIONS)
+          - pattern-not-inside: |
+              jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS, options=$OPTIONS, audience=$AUD)
+          - metavariable-pattern:
+              metavariable: $OPTIONS
+              pattern-not: {..., "verify_aud": True, ...}
+          - pattern-not-inside: |
+              if $PAYLOAD.get("aud") == $EXPECTED_AUD:
+                  ...
+                  jwt.decode($TOKEN, $KEY, algorithms=$ALGORITHMS, options=$OPTIONS)
+      - patterns:
+          - pattern: jwt.decode($TOKEN, key=$KEY, algorithms=$ALGORITHMS)
+          - pattern-not-inside: |
+              jwt.decode($TOKEN, key=$KEY, algorithms=$ALGORITHMS, audience=$AUD, ...)
+          - pattern-not-inside: |
+              if $PAYLOAD.get("aud") == $EXPECTED_AUD:
+                  ...
+                  jwt.decode($TOKEN, key=$KEY, algorithms=$ALGORITHMS)
+      - patterns:
+          - pattern: jwt.decode($TOKEN, key=$KEY, algorithms=$ALGORITHMS, options=$OPTIONS)
+          - pattern-not-inside: |
+              jwt.decode($TOKEN, key=$KEY, algorithms=$ALGORITHMS, options=$OPTIONS, audience=$AUD)
+          - metavariable-pattern:
+              metavariable: $OPTIONS
+              pattern-not: {..., "verify_aud": True, ...}
+          - pattern-not-inside: |
+              if $PAYLOAD.get("aud") == $EXPECTED_AUD:
+                  ...
+                  jwt.decode($TOKEN, key=$KEY, algorithms=$ALGORITHMS, options=$OPTIONS)
