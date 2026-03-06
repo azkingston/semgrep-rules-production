@@ -1,0 +1,85 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-vgjm-2cpf-4g7c
+# Rule:      autogen-dom-based-xss-ghsa-vgjm-2cpf-4g7c.yaml
+# Language:  python
+# Grade:     F (0/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: undefined/undefined caught
+
+# TP-1: Direct insertion of milestone parameter into HTML without escaping
+# Accuracy result: N/A
+from flask import request, render_template_string
+
+@app.route('/issues/new')
+def new_issue():
+    milestone_name = request.args.get('milestone')
+    html = f'<option value="{milestone_name}">{milestone_name}</option>'
+# ruleid: autogen-dom-based-xss-ghsa-vgjm-2cpf-4g7c
+    return render_template_string(html)
+
+# TP-2: Milestone name from database inserted into JSON response without proper escaping
+# Accuracy result: N/A
+import json
+from flask import request, jsonify
+
+@app.route('/api/milestones')
+def get_milestones():
+    milestone_id = request.args.get('id')
+    milestone_data = db.get_milestone(milestone_id)
+    # Vulnerable: milestone name inserted directly into JSON response
+    response = f'{{"name": "{milestone_data.name}", "id": {milestone_id}}}'
+# ruleid: autogen-dom-based-xss-ghsa-vgjm-2cpf-4g7c
+    return response
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: NaN/undefined clean
+
+# FP-1: Properly escaped milestone name using MarkupSafe
+# Accuracy result: N/A
+# ok: from flask import request, render_template
+# ok: from markupsafe import escape
+# ok: 
+# ok: @app.route('/issues/new')
+# ok: def new_issue():
+# ok:     milestone_name = request.args.get('milestone')
+# ok:     escaped_name = escape(milestone_name)
+# ok:     return render_template('new_issue.html', milestone=escaped_name)
+
+# FP-2: HTML escaping applied before rendering milestone name
+# Accuracy result: N/A
+# ok: import html
+# ok: from flask import request
+# ok: 
+# ok: @app.route('/milestones')
+# ok: def show_milestones():
+# ok:     milestone_name = request.form.get('name')
+# ok:     safe_name = html.escape(milestone_name)
+# ok:     return f'<div>{safe_name}</div>'
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: Basic regex sanitization that may be insufficient for comprehensive XSS prevention → N/A
+# from flask import request
+# import re
+# 
+# @app.route('/issues/new')
+# def new_issue():
+#     milestone_name = request.args.get('milestone')
+#     # Basic sanitization - may not catch all XSS vectors
+#     cleaned_name = re.sub(r'[<>"\']', '', milestone_name)
+#     return f'<option value="{cleaned_name}">{cleaned_name}</option>'
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   F 🔴
+# Score:   0/100
+# TP rate: 0% (undefined/undefined)
+# FP rate: 0% (undefined/undefined false alarms)
