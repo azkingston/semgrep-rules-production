@@ -1,0 +1,110 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-g9w5-qffc-6762
+# Language:    python
+# Grade:       F (0/100)
+# TP Rate:     0%
+# FP Rate:     0%
+# Attempts:    1 of 3
+# Generated:   2026-03-06T03:25:11.584Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-missing-authentication-and-sensitive-data-exposure-ghsa-g9w5-qffc-6762
+    version: 1.0.0
+    metadata:
+      description: "Detects unauthenticated backup endpoints that expose encryption keys in response headers, allowing attackers to download and decrypt sensitive system data"
+      severity: CRITICAL
+      references:
+        - "https://github.com/advisories/GHSA-g9w5-qffc-6762"
+        - "https://cwe.mitre.org/data/definitions/306.html"
+        - "https://cwe.mitre.org/data/definitions/311.html"
+      category: security
+      cwe:
+        - "CWE-306: Missing Authentication for Critical Function"
+        - "CWE-311: Missing Encryption of Sensitive Data"
+      owasp:
+        - "A01:2021 - Broken Access Control"
+        - "A02:2021 - Cryptographic Failures"
+    message: "Critical vulnerability detected: backup endpoint lacks authentication and exposes encryption keys in response headers, allowing unauthenticated attackers to download and decrypt sensitive system backups containing user credentials, session tokens, and SSL private keys. Fix by: 1) Add authentication middleware to backup endpoints, 2) Remove encryption keys from response headers, 3) Use secure key exchange mechanisms or pre-shared keys, 4) Implement proper access controls for backup operations, 5) Store encryption keys securely separate from backup data, 6) Add rate limiting and audit logging for backup requests."
+    languages:
+      - python
+    severity: ERROR
+    pattern-either:
+      - pattern: |
+          @$APP.route("/api/backup", ...)
+          def $FUNC(...):
+              ...
+              $RESPONSE.headers["X-Backup-Security"] = $KEY
+              ...
+      - pattern: |
+          @$APP.route("/backup", ...)
+          def $FUNC(...):
+              ...
+              $RESPONSE.headers["X-Backup-Security"] = $KEY
+              ...
+      - pattern: |
+          def $FUNC(...):
+              ...
+              $RESPONSE = make_response($BACKUP_DATA)
+              $RESPONSE.headers["X-Backup-Security"] = $AES_KEY + ":" + $IV
+              ...
+              return $RESPONSE
+      - pattern: |
+          def create_backup(...):
+              ...
+              $SECURITY_TOKEN = $KEY + ":" + $IV
+              ...
+              response.headers["X-Backup-Security"] = $SECURITY_TOKEN
+              ...
+      - pattern: |
+          def backup_handler(...):
+              ...
+              response.headers.add("X-Backup-Security", $ENCRYPTION_KEYS)
+              ...
+              return send_file($BACKUP_FILE)
+      - pattern: |
+          @$DECORATOR
+          def $FUNC(...):
+              ...
+              $HEADERS = {"X-Backup-Security": $KEY_DATA}
+              ...
+              return Response($BACKUP_CONTENT, headers=$HEADERS)
+      - pattern: |
+          def $FUNC(...):
+              ...
+              $KEY_IV = base64.b64encode($AES_KEY) + b":" + base64.b64encode($IV)
+              ...
+              $RESPONSE.headers["X-Backup-Security"] = $KEY_IV
+              ...
+      - pattern: |
+          def handle_backup_request(...):
+              ...
+              return jsonify($DATA), 200, {"X-Backup-Security": $SECURITY_DATA}
+      - pattern: |
+          @app.route("/api/backup")
+          def $HANDLER():
+              ...
+              $RESP.headers["X-Backup-Security"] = $TOKEN
+              ...
+      - pattern: |
+          def $FUNC(...):
+              ...
+              flask.g.response.headers["X-Backup-Security"] = $KEYS
+              ...
+              return send_file($BACKUP)
+    pattern-not-inside: |
+      @$AUTH_DECORATOR
+      def $FUNC(...):
+          ...
+    pattern-not-inside: |
+      def $FUNC(...):
+          ...
+          if not is_authenticated($USER):
+              return abort(401)
+          ...
+    pattern-not-inside: |
+      def $FUNC(...):
+          ...
+          $USER = get_current_user()
+          if not $USER:
+              return redirect("/login")
+          ...
