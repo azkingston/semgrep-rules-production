@@ -1,0 +1,102 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-wjpw-4j6x-6rwh
+# Language:  python
+# Grade:     F (0/100) 🔴
+# TP Rate:   0%
+# FP Rate:   0%
+# Attempts:  1 of 3
+# Generated: 2026-03-06T08:00:24.216Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-uri-parsing-issue-ghsa-wjpw-4j6x-6rwh
+    message: "URI parsing vulnerability detected in Eclipse Jetty HTTP usage. Jetty parses invalid URIs differently from other parsers (invalid schemes, improper IPv4-mapped IPv6 addresses, incorrect delimiter priorities), which can lead to security bypass through differential parsing in multi-component systems. Fix by: 1) Upgrade to patched Jetty versions (12.1.5+, 12.0.31+), 2) Implement strict URI validation using standard libraries before passing to Jetty, 3) Use multiple URI parsers for validation consistency, 4) Avoid relying on Jetty URI parsing for security decisions."
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cve: GHSA-wjpw-4j6x-6rwh
+      cwe: "CWE-436: Interpretation Conflict"
+      confidence: HIGH
+      likelihood: MEDIUM
+      impact: MEDIUM
+      references:
+        - "https://github.com/advisories/GHSA-wjpw-4j6x-6rwh"
+        - "https://cwe.mitre.org/data/definitions/436.html"
+    pattern-either:
+      - patterns:
+          - pattern-inside: |
+              import py4j
+              ...
+          - pattern: $GATEWAY.$JETTY_CLASS.HttpURI($URI)
+          - patterns:
+              - focus-metavariable: $URI
+      - patterns:
+          - pattern-inside: |
+              import py4j
+              ...
+          - pattern: $GATEWAY.$JETTY_CLASS.URI($URI)
+          - patterns:
+              - focus-metavariable: $URI
+      - patterns:
+          - pattern-inside: |
+              from py4j.java_gateway import JavaGateway
+              ...
+          - pattern: $GATEWAY.jvm.$JETTY_PKG.HttpURI($URI)
+          - patterns:
+              - focus-metavariable: $URI
+      - patterns:
+          - pattern-inside: |
+              from py4j.java_gateway import JavaGateway
+              ...
+          - pattern: $GATEWAY.jvm.$JETTY_PKG.URI.create($URI)
+          - patterns:
+              - focus-metavariable: $URI
+      - patterns:
+          - pattern-inside: |
+              import jpype
+              ...
+          - pattern: jpype.$JETTY_PKG.HttpURI($URI)
+          - patterns:
+              - focus-metavariable: $URI
+      - patterns:
+          - pattern-inside: |
+              import jpype
+              ...
+          - pattern: jpype.$JETTY_PKG.URI.create($URI)
+          - patterns:
+              - focus-metavariable: $URI
+      - patterns:
+          - pattern-inside: |
+              from jnius import autoclass
+              ...
+              $URI_CLASS = autoclass('org.eclipse.jetty.http.HttpURI')
+              ...
+          - pattern: $URI_CLASS($URI)
+          - patterns:
+              - focus-metavariable: $URI
+      - patterns:
+          - pattern-inside: |
+              from jnius import autoclass
+              ...
+              $URI_CLASS = autoclass('org.eclipse.jetty.util.URIUtil')
+              ...
+          - pattern: $URI_CLASS.canonicalPath($URI)
+          - patterns:
+              - focus-metavariable: $URI
+    pattern-not-inside: |
+      import urllib.parse
+      ...
+      $PARSED = urllib.parse.urlparse($URI)
+      ...
+      if $PARSED.scheme not in ['http', 'https']:
+          ...
+    pattern-not-inside: |
+      import re
+      ...
+      if not re.match(r'^https?://[a-zA-Z0-9.-]+(/.*)?$', $URI):
+          ...
+    pattern-not-inside: |
+      def validate_uri($URI):
+          ...
+          if '[' in $URI and '@' in $URI:
+              raise ValueError("Invalid URI format")
+          ...
