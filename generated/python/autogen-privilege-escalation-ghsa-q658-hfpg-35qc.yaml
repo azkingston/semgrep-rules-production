@@ -1,0 +1,99 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-q658-hfpg-35qc
+# Language:  python
+# Grade:     F (25/100) 🔴
+# TP Rate:   50%
+# FP Rate:   50%
+# Attempts:  1 of 3
+# Generated: 2026-03-06T08:47:42.294Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-privilege-escalation-ghsa-q658-hfpg-35qc
+    message: "Privilege escalation vulnerability detected: user rank demotion fails to revoke API key permissions, allowing demoted users to retain ApiPermManageFileRequests and ApiPermManageLogs capabilities. This enables continued access to upload-request management and log viewing endpoints after privilege revocation. Fix by implementing proper API key permission cleanup during user demotion: 1) Iterate through all API keys associated with the demoted user, 2) Remove or disable ApiPermManageFileRequests and ApiPermManageLogs permissions from existing keys, 3) Consider invalidating all API keys for demoted users and requiring re-generation with appropriate permissions."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cve: GHSA-q658-hfpg-35qc
+      cwe: "CWE-269: Improper Privilege Management"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+      references:
+        - https://github.com/Forceu/Gokapi/security/advisories/GHSA-q658-hfpg-35qc
+    patterns:
+      - pattern-either:
+          - pattern: |
+              def $FUNC(...):
+                  ...
+                  $USER.rank = $NEW_RANK
+                  ...
+                  $USER.save()
+          - pattern: |
+              def $FUNC(...):
+                  ...
+                  $USER.rank = $NEW_RANK
+                  ...
+                  save_user($USER)
+          - pattern: |
+              def $FUNC(...):
+                  ...
+                  $USER["rank"] = $NEW_RANK
+                  ...
+                  update_user($USER)
+          - pattern: |
+              def $FUNC(...):
+                  ...
+                  update_user_rank($USER_ID, $NEW_RANK)
+                  ...
+          - pattern: |
+              def $FUNC(...):
+                  ...
+                  set_user_rank($USER, $RANK)
+                  ...
+          - pattern: |
+              def $FUNC(...):
+                  ...
+                  demote_user($USER_ID)
+                  ...
+      - metavariable-regex:
+          metavariable: $FUNC
+          regex: .*(demote|downgrade|revoke|remove_admin|change_rank|update_rank|set_rank).*
+      - pattern-not-inside: |
+          def $FUNC(...):
+              ...
+              $USER.rank = $NEW_RANK
+              ...
+              for $API_KEY in $USER.api_keys:
+                  ...
+                  $API_KEY.permissions.remove("ApiPermManageFileRequests")
+                  $API_KEY.permissions.remove("ApiPermManageLogs")
+                  ...
+              ...
+      - pattern-not-inside: |
+          def $FUNC(...):
+              ...
+              $USER.rank = $NEW_RANK
+              ...
+              revoke_api_permissions($USER, ...)
+              ...
+      - pattern-not-inside: |
+          def $FUNC(...):
+              ...
+              $USER.rank = $NEW_RANK
+              ...
+              invalidate_user_api_keys($USER)
+              ...
+      - pattern-not-inside: |
+          def $FUNC(...):
+              ...
+              $USER.rank = $NEW_RANK
+              ...
+              update_api_key_permissions($USER, ...)
+              ...
+      - pattern-not-inside: |
+          def $FUNC(...):
+              ...
+              $USER.rank = $NEW_RANK
+              ...
+              clear_privileged_api_permissions($USER)
+              ...
