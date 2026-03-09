@@ -1,11 +1,8 @@
 # ═══════════════════════════════════════════════════
 # AutoGen Rule — GHSA-6f6w-6j58-rq76
-# Language:  javascript
-# Grade:     A (100/100) 🟢
-# TP Rate:   100%
-# FP Rate:   0%
-# Attempts:  1 of 3
-# Generated: 2026-03-09T05:38:34.839Z
+# Grade: A (100/100) 🟢
+# TP: 100%  FP: 0%  Attempts: 1/3
+# Generated: 2026-03-09T05:54:20.084Z
 # ═══════════════════════════════════════════════════
 rules:
   - id: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
