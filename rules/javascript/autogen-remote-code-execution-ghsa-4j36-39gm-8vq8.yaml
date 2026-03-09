@@ -1,11 +1,8 @@
 # ═══════════════════════════════════════════════════
 # AutoGen Rule — GHSA-4j36-39gm-8vq8
-# Language:  javascript
-# Grade:     A (100/100) 🟢
-# TP Rate:   100%
-# FP Rate:   0%
-# Attempts:  1 of 3
-# Generated: 2026-03-09T05:37:27.445Z
+# Grade: A (100/100) 🟢
+# TP: 100%  FP: 0%  Attempts: 1/3
+# Generated: 2026-03-09T05:53:06.478Z
 # ═══════════════════════════════════════════════════
 rules:
   - id: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
@@ -36,10 +33,14 @@ rules:
       - pattern: location.search
       - pattern: document.URL
       - pattern: window.location
+      - pattern: browser.$METHOD(...)
+      - pattern: $BROWSER.$METHOD(...)
     pattern-sanitizers:
       - pattern: sanitize($X)
       - pattern: escape($X)
       - pattern: validate($X)
+      - pattern: escapeShellArg($X)
+      - pattern: shellEscape($X)
     pattern-sinks:
       - patterns:
           - pattern-either:
@@ -49,4 +50,13 @@ rules:
               - pattern: child_process.exec($CMD, ...)
               - pattern: child_process.execSync($CMD, ...)
               - pattern: child_process.spawn($CMD, ...)
+              - pattern: $CP.exec($CMD, ...)
+              - pattern: $CP.execSync($CMD, ...)
+              - pattern: $CP.spawn($CMD, ...)
           - focus-metavariable: $CMD
+          - pattern-not: exec("ls")
+          - pattern-not: exec("pwd")
+          - pattern-not: exec("whoami")
+          - pattern-not: execSync("ls")
+          - pattern-not: execSync("pwd")
+          - pattern-not: execSync("whoami")
