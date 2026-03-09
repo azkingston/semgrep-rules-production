@@ -1,0 +1,58 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-h343-gg57-2q67
+# Rule:      autogen-remote-code-execution-ghsa-h343-gg57-2q67.yaml
+# Language:  javascript
+# Grade:     C (50/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/javascript/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: 1/2 caught
+
+# TP-1: prototype chain escape to access process and execute user input
+# Accuracy result: MISS ❌
+const proc = this.constructor.constructor('return process')();
+const cp = proc.mainModule.require('child_process');
+# ruleid: autogen-remote-code-execution-ghsa-h343-gg57-2q67
+cp.execSync(userInput);
+
+# TP-2: direct execution of user-supplied code in vm context without sanitization
+# Accuracy result: PASS ✅
+const vm = require('vm');
+const code = req.body.script;
+# ruleid: autogen-remote-code-execution-ghsa-h343-gg57-2q67
+const result = vm.runInContext(code, {});
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: 2/2 clean
+
+# FP-1: hardcoded safe mathematical expression in vm
+# Accuracy result: CLEAN ✅
+# ok: const vm = require('vm');
+# ok: const code = 'Math.max(1, 2, 3)';
+# ok: const result = vm.runInContext(code, {});
+
+# FP-2: hardcoded system command without user input
+# Accuracy result: CLEAN ✅
+# ok: const child_process = require('child_process');
+# ok: child_process.execSync('ls -la /app');
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: whitelist-based command execution - depends on validation strength → SILENT
+# const allowedCommands = ['ls', 'pwd', 'date'];
+# const cmd = allowedCommands[userChoice];
+# require('child_process').exec(cmd);
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   C 🟠
+# Score:   50/100
+# TP rate: 50% (1/2)
+# FP rate: 0% (0/2 false alarms)
+# Edges:   0/1 fired

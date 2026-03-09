@@ -1,0 +1,81 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-h343-gg57-2q67
+# Language:  javascript
+# Grade:     C (50/100) 🟠
+# TP Rate:   50%
+# FP Rate:   0%
+# Attempts:  2 of 3
+# Generated: 2026-03-09T07:09:59.739Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-remote-code-execution-ghsa-h343-gg57-2q67
+    message: >-
+      Remote Code Execution via Node.js vm module sandbox escape detected. User-controlled JavaScript code
+      is being executed using vm.runInContext() without proper sandboxing. The Node.js vm module is not a
+      security boundary and can be escaped using prototype chain manipulation (this.constructor.constructor)
+      to access the underlying process object and execute arbitrary system commands. Use isolated-vm, a
+      dedicated sandboxed container, or validate/restrict code execution to prevent RCE attacks.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      cve: GHSA-h343-gg57-2q67
+      cwe: "CWE-94: Improper Control of Generation of Code ('Code Injection')"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+      references:
+        - https://github.com/OneUptime/oneuptime/security/advisories/GHSA-h343-gg57-2q67
+    mode: taint
+    pattern-sources:
+      - pattern: req.body
+      - pattern: req.query
+      - pattern: req.params
+      - pattern: req.body.$FIELD
+      - pattern: req.query.$FIELD
+      - pattern: req.params.$FIELD
+      - pattern: request.body
+      - pattern: request.query
+      - pattern: request.params
+      - pattern: request.body.$FIELD
+      - pattern: request.query.$FIELD
+      - pattern: request.params.$FIELD
+      - pattern: window.location
+      - pattern: document.URL
+      - pattern: location.search
+      - patterns:
+          - pattern: $OBJ.script
+          - pattern-inside: |
+              $OBJ = { ..., script: $CODE, ... }
+      - patterns:
+          - pattern: $OBJ.code
+          - pattern-inside: |
+              $OBJ = { ..., code: $CODE, ... }
+      - patterns:
+          - pattern: $OBJ.customCode
+          - pattern-inside: |
+              $OBJ = { ..., customCode: $CODE, ... }
+      - patterns:
+          - pattern: $OBJ.playwrightCode
+          - pattern-inside: |
+              $OBJ = { ..., playwrightCode: $CODE, ... }
+    pattern-sanitizers:
+      - pattern: sanitize($X)
+      - pattern: validate($X)
+      - pattern: escape($X)
+      - pattern: allowlist($X)
+      - patterns:
+          - pattern: $X
+          - pattern-inside: |
+              if ($ALLOWLIST.includes($X)) {
+                ...
+              }
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: vm.runInNewContext($CODE, ...)
+              - pattern: vm.runInThisContext($CODE, ...)
+              - pattern: vm.runInContext($CODE, ...)
+              - pattern: $VM.runInNewContext($CODE, ...)
+              - pattern: $VM.runInThisContext($CODE, ...)
+              - pattern: $VM.runInContext($CODE, ...)
+          - focus-metavariable: $CODE
