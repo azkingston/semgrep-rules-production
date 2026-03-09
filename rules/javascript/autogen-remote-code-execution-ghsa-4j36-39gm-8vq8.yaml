@@ -1,0 +1,102 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule: GHSA-4j36-39gm-8vq8
+# Grade: F (0/100) 🔴
+# TP: 0%  FP: 0%  Attempts: 1/3
+# Generated: 2026-03-09T07:12:31.693Z
+# ═══════════════════════════════════════════════════
+
+rules:
+  - id: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+    message: >-
+      Remote Code Execution via command injection detected. User-controlled input is being passed to a
+      command execution function without proper sanitization. This allows attackers to inject arbitrary
+      system commands. Validate and sanitize all user input before passing to exec, execSync, spawn,
+      or other command execution functions.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      cve: GHSA-4j36-39gm-8vq8
+      cwe: "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+      references:
+        - https://github.com/OneUptime/oneuptime/security/advisories/GHSA-4j36-39gm-8vq8
+    mode: taint
+    pattern-sources:
+      - pattern: req.body
+      - pattern: req.query
+      - pattern: req.params
+      - pattern: req.body.$FIELD
+      - pattern: req.query.$FIELD
+      - pattern: req.params.$FIELD
+      - pattern: request.body
+      - pattern: request.query
+      - pattern: request.params
+      - pattern: request.body.$FIELD
+      - pattern: request.query.$FIELD
+      - pattern: request.params.$FIELD
+      - pattern: request.headers
+      - pattern: request.headers.$FIELD
+      - pattern: req.headers
+      - pattern: req.headers.$FIELD
+      - pattern: window.location
+      - pattern: document.URL
+      - pattern: location.search
+      - pattern: url.parse($REQ.url, true).query
+      - pattern: url.parse($REQ.url, true).query.$FIELD
+    pattern-propagators:
+      - patterns:
+          - pattern: Buffer.from($X, 'base64').toString('utf8')
+          - focus-metavariable: $X
+      - patterns:
+          - pattern: Buffer.from($X, 'base64').toString(...)
+          - focus-metavariable: $X
+      - patterns:
+          - pattern: JSON.parse($X)
+          - focus-metavariable: $X
+      - patterns:
+          - pattern: JSON.parse($X).$FIELD
+          - focus-metavariable: $X
+      - patterns:
+          - pattern: $FUNC($X)
+          - metavariable-pattern:
+              metavariable: $FUNC
+              patterns:
+                - pattern-either:
+                    - pattern: base64Decode
+                    - pattern: parseJSON
+          - focus-metavariable: $X
+    pattern-sanitizers:
+      - pattern: sanitize($X)
+      - pattern: validate($X)
+      - pattern: escape($X)
+      - pattern: shellEscape($X)
+      - pattern: shellescape($X)
+      - patterns:
+          - pattern: $X.replace(/[;&|`$(){}[\]\\]/g, "")
+      - patterns:
+          - pattern: $X
+          - pattern-inside: |
+              if (!/^[a-zA-Z0-9_-]+$/.test($X)) {
+                ...
+              }
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: exec($CMD, ...)
+              - pattern: execSync($CMD, ...)
+              - pattern: spawn($CMD, ...)
+              - pattern: execFile($CMD, ...)
+              - pattern: fork($CMD, ...)
+              - pattern: child_process.exec($CMD, ...)
+              - pattern: child_process.execSync($CMD, ...)
+              - pattern: child_process.spawn($CMD, ...)
+              - pattern: child_process.execFile($CMD, ...)
+              - pattern: child_process.fork($CMD, ...)
+              - pattern: $CP.exec($CMD, ...)
+              - pattern: $CP.execSync($CMD, ...)
+              - pattern: $CP.spawn($CMD, ...)
+              - pattern: $CP.execFile($CMD, ...)
+              - pattern: $CP.fork($CMD, ...)
+          - focus-metavariable: $CMD
