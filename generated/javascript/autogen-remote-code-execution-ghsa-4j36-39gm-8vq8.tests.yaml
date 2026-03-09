@@ -1,0 +1,64 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-4j36-39gm-8vq8
+# Rule:      autogen-remote-code-execution-ghsa-4j36-39gm-8vq8.yaml
+# Language:  javascript
+# Grade:     F (0/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/javascript/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: undefined/undefined caught
+
+# TP-1: User-controlled executablePath in Playwright browser launch
+# Accuracy result: N/A
+const browser = page.browser();
+const newBrowser = await browser.browserType().launch({
+  executablePath: userInput,
+  args: ['--no-sandbox']
+# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+});
+
+# TP-2: VM context with exposed browser object allowing RCE via browserType().launch()
+# Accuracy result: N/A
+async function runMonitor(customCode, browser) {
+  const vm = require('vm');
+  const context = { browser, console };
+  return vm.runInNewContext(customCode, context);
+# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+}
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: NaN/undefined clean
+
+# FP-1: Direct Playwright launch with hardcoded safe options
+# Accuracy result: N/A
+# ok: const browser = await playwright.chromium.launch({
+# ok:   headless: true,
+# ok:   args: ['--no-sandbox']
+# ok: });
+
+# FP-2: VM context without dangerous objects like browser or process
+# Accuracy result: N/A
+# ok: const vm = require('vm');
+# ok: const safeContext = { Math, JSON, console };
+# ok: vm.runInNewContext(userCode, safeContext);
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: Conditional browser launch based on configuration - depends on option validation → N/A
+# const browser = getBrowserFromPool();
+# if (config.allowCustomBrowserType) {
+#   await browser.browserType().launch(options);
+# }
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   F 🔴
+# Score:   0/100
+# TP rate: 0% (undefined/undefined)
+# FP rate: 0% (undefined/undefined false alarms)
