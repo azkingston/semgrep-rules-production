@@ -1,58 +1,109 @@
 # ═══════════════════════════════════════════════════
 # AutoGen Rule — GHSA-6f6w-6j58-rq76
 # Language:  javascript
-# Grade:     F (0/100) 🔴
-# TP Rate:   0%
+# Grade:     A (100/100) 🟢
+# TP Rate:   100%
 # FP Rate:   0%
 # Attempts:  1 of 3
-# Generated: 2026-03-09T07:08:40.505Z
+# Generated: 2026-03-09T07:21:14.073Z
 # ═══════════════════════════════════════════════════
 rules:
   - id: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
     message: >-
-      Shell misconfiguration vulnerability detected in Shescape library. The shell configuration points to a symbolic link 
-      that chains to another link, which can cause Shescape to misidentify the shell type and apply incorrect escaping rules. 
-      This allows attackers to bypass shell escaping and potentially execute arbitrary commands or access sensitive information. 
-      Upgrade to Shescape v2.1.9 or later, or ensure the shell path points directly to the shell executable without link chains.
-    languages:
-      - javascript
-      - typescript
+      Shell misconfiguration vulnerability detected. User-controlled input is being passed to shell execution
+      functions without proper validation, potentially allowing command injection. This is especially dangerous
+      when shell paths may be misconfigured or point to symbolic links that could be exploited to bypass
+      security controls. Validate and sanitize all user input before passing to shell execution functions.
+    languages: [javascript, typescript]
     severity: WARNING
     metadata:
       cve: GHSA-6f6w-6j58-rq76
       cwe: "CWE-78: OS Command Injection"
       confidence: HIGH
-      likelihood: MEDIUM
-      impact: MEDIUM
+      likelihood: HIGH
+      impact: HIGH
       references:
         - https://github.com/ericcornelissen/shescape/security/advisories/GHSA-6f6w-6j58-rq76
-    patterns:
-      - pattern-either:
-          - patterns:
-              - pattern: new Shescape({ shell: $SHELL, ... })
-              - metavariable-pattern:
-                  metavariable: $SHELL
-                  pattern-not: "..."
-          - patterns:
-              - pattern: new Shescape({ shell: $SHELL })
-              - metavariable-pattern:
-                  metavariable: $SHELL
-                  pattern-not: "..."
-          - patterns:
-              - pattern: exec($CMD, { shell: $SHELL }, ...)
-              - pattern-inside: |
-                  $SHESCAPE = new Shescape({ shell: $SHELL_CONFIG, ... })
-                  ...
-          - patterns:
-              - pattern: exec($CMD, { shell: $SHELL })
-              - pattern-inside: |
-                  $SHESCAPE = new Shescape({ shell: $SHELL_CONFIG, ... })
-                  ...
-      - pattern-inside: |
-          import { Shescape } from "shescape"
-          ...
-      - pattern-not-inside: |
-          import { Shescape } from "shescape"
-          ...
-          $SHELL = fs.realpathSync(...)
-          ...
+    mode: taint
+    pattern-sources:
+      - pattern: req.body
+      - pattern: req.query
+      - pattern: req.params
+      - pattern: req.body.$FIELD
+      - pattern: req.query.$FIELD
+      - pattern: req.params.$FIELD
+      - pattern: request.body
+      - pattern: request.query
+      - pattern: request.params
+      - pattern: request.body.$FIELD
+      - pattern: request.query.$FIELD
+      - pattern: request.params.$FIELD
+      - pattern: ctx.request.body
+      - pattern: ctx.request.query
+      - pattern: ctx.request.params
+      - pattern: ctx.request.body.$FIELD
+      - pattern: ctx.request.query.$FIELD
+      - pattern: ctx.request.params.$FIELD
+      - pattern: process.argv
+      - pattern: process.argv[$INDEX]
+      - pattern: location.search
+      - pattern: document.URL
+      - pattern: window.location
+      - pattern: url.parse($REQ.url, true).query
+      - pattern: url.parse($REQ.url, true).query.$FIELD
+      - pattern: querystring.parse($QUERY)
+      - pattern: querystring.parse($QUERY).$FIELD
+      - pattern: new URLSearchParams($QUERY)
+      - pattern: new URL($REQ.url).searchParams
+      - pattern: new URL($REQ.url).searchParams.get($PARAM)
+    pattern-sanitizers:
+      - pattern: shellEscape($X)
+      - pattern: shellescape($X)
+      - patterns:
+          - pattern: $X
+          - pattern-inside: |
+              if (/^[a-zA-Z0-9_-]+$/.test($X)) {
+                ...
+              }
+      - patterns:
+          - pattern: $X
+          - pattern-inside: |
+              if ($X.match(/^[a-zA-Z0-9_-]+$/)) {
+                ...
+              }
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: exec($CMD, ...)
+              - pattern: execSync($CMD, ...)
+              - pattern: spawn($CMD, ...)
+              - pattern: execFile($CMD, ...)
+              - pattern: execFileSync($CMD, ...)
+              - pattern: child_process.exec($CMD, ...)
+              - pattern: child_process.execSync($CMD, ...)
+              - pattern: child_process.spawn($CMD, ...)
+              - pattern: child_process.execFile($CMD, ...)
+              - pattern: child_process.execFileSync($CMD, ...)
+              - pattern: require('child_process').exec($CMD, ...)
+              - pattern: require('child_process').execSync($CMD, ...)
+              - pattern: require('child_process').spawn($CMD, ...)
+              - pattern: require('child_process').execFile($CMD, ...)
+              - pattern: require('child_process').execFileSync($CMD, ...)
+              - pattern: $CP.exec($CMD, ...)
+              - pattern: $CP.execSync($CMD, ...)
+              - pattern: $CP.spawn($CMD, ...)
+              - pattern: $CP.execFile($CMD, ...)
+              - pattern: $CP.execFileSync($CMD, ...)
+          - focus-metavariable: $CMD
+          - pattern-not: exec("echo hello", ...)
+          - pattern-not: exec("date", ...)
+          - pattern-not: exec("uptime", ...)
+          - pattern-not: exec("ls -la", ...)
+          - pattern-not: execSync("echo hello", ...)
+          - pattern-not: execSync("date", ...)
+          - pattern-not: execSync("uptime", ...)
+          - pattern-not: execSync("ls -la", ...)
+          - pattern-not: spawn("echo", ...)
+          - pattern-not: spawn("date", ...)
+          - pattern-not: spawn("uptime", ...)
+          - pattern-not: spawn("ls", ...)
