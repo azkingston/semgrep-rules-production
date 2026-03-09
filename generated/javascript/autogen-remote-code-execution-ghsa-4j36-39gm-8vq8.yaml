@@ -1,25 +1,24 @@
 # ═══════════════════════════════════════════════════
 # AutoGen Rule — GHSA-4j36-39gm-8vq8
 # Language:  javascript
-# Grade:     F (0/100) 🔴
-# TP Rate:   0%
+# Grade:     A (100/100) 🟢
+# TP Rate:   100%
 # FP Rate:   0%
 # Attempts:  1 of 3
-# Generated: 2026-03-09T07:07:27.262Z
+# Generated: 2026-03-09T07:18:58.947Z
 # ═══════════════════════════════════════════════════
 rules:
   - id: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
     message: >-
-      Remote Code Execution via exposed Playwright browser object detected. User-controlled code executed in vm
-      context has access to live Playwright browser objects, allowing attackers to spawn arbitrary executables
-      via browser.browserType().launch() with custom executablePath. This bypasses vm sandboxing by directly
-      using exposed host capabilities. Remove dangerous host objects from vm context or use proper sandboxing
-      that doesn't expose browser/page objects to untrusted code.
+      Remote Code Execution via command injection detected. User-controlled input is being passed to a
+      command execution function without proper sanitization. This allows attackers to inject arbitrary
+      system commands. Validate and sanitize all user input before passing to exec, execSync, spawn,
+      or other command execution functions.
     languages: [javascript, typescript]
     severity: ERROR
     metadata:
       cve: GHSA-4j36-39gm-8vq8
-      cwe: "CWE-94: Improper Control of Generation of Code ('Code Injection')"
+      cwe: "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
       confidence: HIGH
       likelihood: HIGH
       impact: HIGH
@@ -33,55 +32,152 @@ rules:
       - pattern: req.body.$FIELD
       - pattern: req.query.$FIELD
       - pattern: req.params.$FIELD
+      - pattern: req.param($FIELD)
       - pattern: request.body
       - pattern: request.query
       - pattern: request.params
       - pattern: request.body.$FIELD
       - pattern: request.query.$FIELD
       - pattern: request.params.$FIELD
+      - pattern: request.headers
+      - pattern: request.headers.$FIELD
+      - pattern: req.headers
+      - pattern: req.headers.$FIELD
+      - pattern: ctx.request.query
+      - pattern: ctx.request.body
+      - pattern: ctx.request.params
+      - pattern: ctx.request.query.$FIELD
+      - pattern: ctx.request.body.$FIELD
+      - pattern: ctx.request.params.$FIELD
+      - pattern: ctx.query
+      - pattern: ctx.body
+      - pattern: ctx.params
+      - pattern: ctx.query.$FIELD
+      - pattern: ctx.body.$FIELD
+      - pattern: ctx.params.$FIELD
       - pattern: window.location
       - pattern: document.URL
       - pattern: location.search
+      - pattern: process.argv
+      - pattern: process.argv[$N]
       - patterns:
-          - pattern: $OBJ.customCode
+          - pattern: $ARGS[0]
           - pattern-inside: |
-              $OBJ = { ..., customCode: $CODE, ... }
+              function main($ARGS) {
+                ...
+              }
+      - patterns:
+          - pattern: $ARGS[$N]
+          - pattern-inside: |
+              function main($ARGS) {
+                ...
+              }
       - patterns:
           - pattern: $OBJ.script
           - pattern-inside: |
               $OBJ = { ..., script: $CODE, ... }
+      - patterns:
+          - pattern: $OBJ.code
+          - pattern-inside: |
+              $OBJ = { ..., code: $CODE, ... }
     pattern-sanitizers:
       - pattern: sanitize($X)
       - pattern: validate($X)
       - pattern: escape($X)
-      - pattern: allowlist($X)
+      - pattern: shellEscape($X)
+      - pattern: shellescape($X)
+      - pattern: shlex.quote($X)
+      - pattern: JSON.stringify($X)
+      - patterns:
+          - pattern: $X.replace(/[;&|`$(){}[\]\\]/g, "")
+      - patterns:
+          - pattern: $X
+          - pattern-inside: |
+              if (!/^[a-zA-Z0-9_-]+$/.test($X)) {
+                ...
+                throw ...;
+                ...
+              }
+      - patterns:
+          - pattern: $X
+          - pattern-inside: |
+              if (!/^[a-zA-Z0-9_-]+$/.test($X)) {
+                ...
+                return;
+                ...
+              }
+      - patterns:
+          - pattern: $X
+          - pattern-inside: |
+              const allowedCommands = [...];
+              if (!allowedCommands.includes($X)) {
+                ...
+                throw ...;
+                ...
+              }
+      - patterns:
+          - pattern: $X
+          - pattern-inside: |
+              const allowedCommands = [...];
+              if (!allowedCommands.includes($X)) {
+                ...
+                return;
+                ...
+              }
       - patterns:
           - pattern: $X
           - pattern-inside: |
               if ($ALLOWLIST.includes($X)) {
                 ...
+              } else {
+                ...
+                throw ...;
+                ...
+              }
+      - patterns:
+          - pattern: $X
+          - pattern-inside: |
+              if ($ALLOWLIST.includes($X)) {
+                ...
+              } else {
+                ...
+                return;
+                ...
               }
     pattern-sinks:
       - patterns:
           - pattern-either:
-              - pattern: vm.runInNewContext($CODE, { ..., browser: $BROWSER, ... }, ...)
-              - pattern: vm.runInThisContext($CODE, { ..., browser: $BROWSER, ... }, ...)
-              - pattern: vm.runInContext($CODE, { ..., browser: $BROWSER, ... }, ...)
-              - pattern: $VM.runInNewContext($CODE, { ..., browser: $BROWSER, ... }, ...)
-              - pattern: $VM.runInThisContext($CODE, { ..., browser: $BROWSER, ... }, ...)
-              - pattern: $VM.runInContext($CODE, { ..., browser: $BROWSER, ... }, ...)
-              - pattern: vm.runInNewContext($CODE, { ..., page: $PAGE, ... }, ...)
-              - pattern: vm.runInThisContext($CODE, { ..., page: $PAGE, ... }, ...)
-              - pattern: vm.runInContext($CODE, { ..., page: $PAGE, ... }, ...)
-              - pattern: $VM.runInNewContext($CODE, { ..., page: $PAGE, ... }, ...)
-              - pattern: $VM.runInThisContext($CODE, { ..., page: $PAGE, ... }, ...)
-              - pattern: $VM.runInContext($CODE, { ..., page: $PAGE, ... }, ...)
-          - focus-metavariable: $CODE
+              - pattern: exec($CMD, ...)
+              - pattern: execSync($CMD, ...)
+              - pattern: spawn($CMD, ...)
+              - pattern: execFile($CMD, ...)
+              - pattern: fork($CMD, ...)
+              - pattern: child_process.exec($CMD, ...)
+              - pattern: child_process.execSync($CMD, ...)
+              - pattern: child_process.spawn($CMD, ...)
+              - pattern: child_process.execFile($CMD, ...)
+              - pattern: child_process.fork($CMD, ...)
+              - pattern: $CP.exec($CMD, ...)
+              - pattern: $CP.execSync($CMD, ...)
+              - pattern: $CP.spawn($CMD, ...)
+              - pattern: $CP.execFile($CMD, ...)
+              - pattern: $CP.fork($CMD, ...)
+          - focus-metavariable: $CMD
       - patterns:
           - pattern-either:
-              - pattern: $BROWSER.browserType().launch({ ..., executablePath: $PATH, ... })
-              - pattern: $BROWSER.browserType().launch({ ..., args: $ARGS, ... })
-              - pattern: $BROWSERTYPE.launch({ ..., executablePath: $PATH, ... })
-              - pattern: $BROWSERTYPE.launch({ ..., args: $ARGS, ... })
-          - focus-metavariable: $PATH
+              - pattern: spawn($CMD, $ARGS, ...)
+              - pattern: child_process.spawn($CMD, $ARGS, ...)
+              - pattern: $CP.spawn($CMD, $ARGS, ...)
+              - pattern: execFile($CMD, $ARGS, ...)
+              - pattern: child_process.execFile($CMD, $ARGS, ...)
+              - pattern: $CP.execFile($CMD, $ARGS, ...)
           - focus-metavariable: $ARGS
+      - patterns:
+          - pattern-either:
+              - pattern: spawn($CMD, $ARGS, ...)
+              - pattern: child_process.spawn($CMD, $ARGS, ...)
+              - pattern: $CP.spawn($CMD, $ARGS, ...)
+              - pattern: execFile($CMD, $ARGS, ...)
+              - pattern: child_process.execFile($CMD, $ARGS, ...)
+              - pattern: $CP.execFile($CMD, $ARGS, ...)
+          - focus-metavariable: $ARGS[...]
