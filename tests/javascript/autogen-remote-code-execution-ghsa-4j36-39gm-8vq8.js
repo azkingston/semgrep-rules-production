@@ -1,24 +1,31 @@
 # Semgrep test file — GHSA-4j36-39gm-8vq8
 # Rule: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-# Generated: 2026-03-09T06:04:44.975Z
+# Generated: 2026-03-09T06:58:52.733Z
 
 # ── TRUE POSITIVES ─────────────────────────────────────────
 
-# TP-1: Direct eval of user-provided script from request body
+# TP-1: Real vulnerable code from fix PR/commit (code_search:arkenfox/user.js)
+# Code search reference from: arkenfox/user.js
+# File: user.js
+# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+# (see file for full context)
+
+# TP-2: Express JSON body with direct script execution
 const express = require('express');
 const app = express();
+app.use(express.json());
 app.post('/execute', (req, res) => {
   const userScript = req.body.script;
-  // ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-  eval(userScript);
+  const vm = require('vm');
+  const script = new vm.Script(userScript);
+  script.runInThisContext();
   res.send('Executed');
 # ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
 });
 
-# TP-2: Command execution with user input from command line arguments
+# TP-3: Command line input to exec
 const { exec } = require('child_process');
 const userInput = process.argv[2];
-// ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
 exec(userInput, (error, stdout, stderr) => {
   if (error) {
     console.error(`exec error: ${error}`);
@@ -29,15 +36,23 @@ exec(userInput, (error, stdout, stderr) => {
 # ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
 });
 
-# TP-3: Command execution with user input from URL parameters
+# TP-4: Playwright with eval on user script
+const playwright = require('playwright');
+async function runScript(userScript) {
+  const browser = await playwright.chromium.launch();
+  eval(userScript);
+  await browser.close();
+}
+# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+runScript('console.log("Hello World")');
+
+# TP-5: Express route parameter to exec
 const express = require('express');
 const app = express();
 app.get('/run/:cmd', (req, res) => {
-  const cmd = req.params.cmd;
   const { exec } = require('child_process');
-  // ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-  exec(cmd, (err, stdout, stderr) => {
-    if (err) {
+  exec(req.params.cmd, (error, stdout, stderr) => {
+    if (error) {
       res.status(500).send('Error');
       return;
     }
@@ -46,79 +61,15 @@ app.get('/run/:cmd', (req, res) => {
 # ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
 });
 
-# TP-4: Command execution with environment variable input
+# TP-6: [BYPASS indirect_flow] Indirect flow through function calls and variable assignment.
 const { exec } = require('child_process');
-const userInput = 'ls ' + process.env.USER_INPUT;
-// ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-exec(userInput, (error, stdout, stderr) => {
-  if (error) {
-    console.error(`exec error: ${error}`);
-    return;
-  }
-  console.log(`stdout: ${stdout}`);
-  console.error(`stderr: ${stderr}`);
-# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-});
 
-# TP-5: Playwright script execution via eval with user input
-const playwright = require('playwright');
-async function run() {
-  const browser = await playwright.chromium.launch();
-  const page = await browser.newPage();
-  const userScript = 'page.goto("http://example.com")';
-  // ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-  eval(userScript);
-  await browser.close();
+function getCommand() {
+  return req.query.command;
 }
-# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-run();
 
-# ── FALSE POSITIVES ────────────────────────────────────────
-
-# FP-1: Hardcoded safe command execution
-const { exec } = require('child_process');
-// ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-exec('echo "Hello World"', (error, stdout, stderr) => {
-  if (error) {
-    console.error(`exec error: ${error}`);
-    return;
-  }
-  console.log(`stdout: ${stdout}`);
-  console.error(`stderr: ${stderr}`);
-# ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-});
-
-# FP-2: Eval with hardcoded safe script
-const express = require('express');
-const app = express();
-app.post('/safe', (req, res) => {
-  const safeScript = 'console.log("Safe")';
-  // ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-  eval(safeScript);
-  res.send('Executed safely');
-# ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-});
-
-# FP-3: Execution with hardcoded safe input
-const { exec } = require('child_process');
-const safeInput = 'ls -la';
-// ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-exec(safeInput, (error, stdout, stderr) => {
-  if (error) {
-    console.error(`exec error: ${error}`);
-    return;
-  }
-  console.log(`stdout: ${stdout}`);
-  console.error(`stderr: ${stderr}`);
-# ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-});
-
-# FP-4: Function with hardcoded safe command
-const { exec } = require('child_process');
-function executeSafeCommand() {
-  const command = 'echo "Safe execution"';
-  // ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-  exec(command, (error, stdout, stderr) => {
+function executeCommand(cmd) {
+  exec(cmd, (error, stdout, stderr) => {
     if (error) {
       console.error(`exec error: ${error}`);
       return;
@@ -127,33 +78,161 @@ function executeSafeCommand() {
     console.error(`stderr: ${stderr}`);
   });
 }
-# ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-executeSafeCommand();
 
-# FP-5: Sanitized user input for command execution
+const userCommand = getCommand();
+# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+executeCommand(userCommand);
+
+# TP-7: [BYPASS indirect_flow] Indirect flow through a helper function and variable assignment.
 const { exec } = require('child_process');
-const sanitizedInput = sanitizeInput(userInput);
-// ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-exec(sanitizedInput, (error, stdout, stderr) => {
+
+function fetchUserInput() {
+  return req.body.cmd;
+}
+
+const runCommand = (command) => {
+  exec(command, (err, stdout, stderr) => {
+    if (err) {
+      console.error(`exec error: ${err}`);
+      return;
+    }
+    console.log(`stdout: ${stdout}`);
+    console.error(`stderr: ${stderr}`);
+  });
+};
+
+const commandToRun = fetchUserInput();
+# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+runCommand(commandToRun);
+
+# TP-8: [BYPASS encoding_transformation] Bypasses the rule by encoding the command in base64, which is then decoded before execution.
+const { exec } = require('child_process');
+const base64 = require('base-64');
+const userInput = req.query.cmd;
+const decodedInput = base64.decode(userInput);
+# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+exec(decodedInput);
+
+# TP-9: [BYPASS encoding_transformation] Bypasses the rule by wrapping the command in a JSON object and then parsing it before execution.
+const { exec } = require('child_process');
+const userInput = req.query.cmd;
+const parsedInput = JSON.parse(`{"cmd":"${userInput}"}`).cmd;
+# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+exec(parsedInput);
+
+# TP-10: [BYPASS framework_variation] Using Node.js 'url' and 'querystring' modules to parse and execute commands from a URL query parameter.
+const { exec } = require('child_process');
+const url = require('url');
+const querystring = require('querystring');
+
+const reqUrl = 'http://example.com?cmd=ls';
+const parsedUrl = url.parse(reqUrl);
+const query = querystring.parse(parsedUrl.query);
+
+exec(query.cmd, (error, stdout, stderr) => {
   if (error) {
     console.error(`exec error: ${error}`);
     return;
   }
   console.log(`stdout: ${stdout}`);
   console.error(`stderr: ${stderr}`);
+# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
 });
-function sanitizeInput(input) {
-  return input.replace(/[^a-zA-Z0-9 ]/g, '');
+
+# TP-11: [BYPASS framework_variation] Using Node.js 'http' module to receive and execute commands from HTTP POST body without sanitization.
+const { spawn } = require('child_process');
+const http = require('http');
+
+http.createServer((req, res) => {
+  let body = '';
+  req.on('data', chunk => {
+    body += chunk.toString();
+  });
+  req.on('end', () => {
+    const command = JSON.parse(body).command;
+    const child = spawn(command, { shell: true });
+
+    child.stdout.on('data', (data) => {
+      console.log(`stdout: ${data}`);
+    });
+
+    child.stderr.on('data', (data) => {
+      console.error(`stderr: ${data}`);
+    });
+
+    child.on('close', (code) => {
+      console.log(`child process exited with code ${code}`);
+    });
+  });
+# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+}).listen(8080);
+
+# ── FALSE POSITIVES ────────────────────────────────────────
+
+# FP-1: Hardcoded safe command
+const { exec } = require('child_process');
+exec('ls -la', (error, stdout, stderr) => {
+  if (error) {
+    console.error(`exec error: ${error}`);
+    return;
+  }
+  console.log(`stdout: ${stdout}`);
+  console.error(`stderr: ${stderr}`);
+# ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+});
+
+# FP-2: Sanitized user input before eval
+const express = require('express');
+const app = express();
+app.use(express.json());
+app.post('/safe', (req, res) => {
+  const userScript = req.body.script;
+  const safeScript = sanitize(userScript);
+  eval(safeScript);
+  res.send('Executed safely');
+});
+function sanitize(script) {
+  return script.replace(/dangerousFunction/g, '');
 # ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
 }
 
+# FP-3: Using execFile with hardcoded arguments
+const { execFile } = require('child_process');
+execFile('ls', ['-la'], (error, stdout, stderr) => {
+  if (error) {
+    console.error(`exec error: ${error}`);
+    return;
+  }
+  console.log(`stdout: ${stdout}`);
+  console.error(`stderr: ${stderr}`);
+# ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+});
+
+# FP-4: Reading a file with fs.readFile
+const fs = require('fs');
+fs.readFile('/etc/passwd', 'utf8', (err, data) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+  console.log(data);
+# ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+});
+
+# FP-5: Simple express route with no user input execution
+const express = require('express');
+const app = express();
+app.get('/safe', (req, res) => {
+  res.send('This is safe');
+# ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+});
+
 # ── EDGE CASES (todo — does not fail CI) ───────────────────
 
-# EDGE-1: Config-driven command execution — debatable
+# EDGE-1: Config-driven command execution
 const { exec } = require('child_process');
-const config = { command: 'ls -la' };
-// todoruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-exec(config.command, (error, stdout, stderr) => {
+const config = require('./config');
+exec(config.safeCommand, (error, stdout, stderr) => {
   if (error) {
     console.error(`exec error: ${error}`);
     return;
@@ -163,17 +242,18 @@ exec(config.command, (error, stdout, stderr) => {
 # todoruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
 });
 
-# EDGE-2: Sanitized but still risky due to incomplete sanitization
+# EDGE-2: Sanitized input but still risky
 const { exec } = require('child_process');
-const userInput = process.argv[2];
-const sanitizedInput = userInput.replace(/[^a-zA-Z0-9 ]/g, '');
-// todook: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-exec(sanitizedInput, (error, stdout, stderr) => {
+const userInput = sanitizeInput(process.argv[2]);
+exec(userInput, (error, stdout, stderr) => {
   if (error) {
     console.error(`exec error: ${error}`);
     return;
   }
   console.log(`stdout: ${stdout}`);
   console.error(`stderr: ${stderr}`);
-# todook: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
 });
+function sanitizeInput(input) {
+  return input.replace(/[^a-zA-Z0-9]/g, '');
+# todook: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+}
