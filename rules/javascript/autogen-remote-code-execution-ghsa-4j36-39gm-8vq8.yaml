@@ -1,0 +1,66 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-4j36-39gm-8vq8
+# Language:  javascript
+# Grade:     F (0/100) 🔴
+# TP Rate:   0%
+# FP Rate:   0%
+# Attempts:  1 of 3
+# Generated: 2026-03-09T05:22:15.349Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+    message: >-
+      Remote Code Execution via Playwright browser object exposure detected. User-controlled code is being executed
+      with access to Playwright browser objects, creating a server-side RCE primitive. The attacker can directly use
+      the injected Playwright browser object without needing classic sandbox escape techniques. This occurs when
+      untrusted code is run inside Node's vm or executed directly with live Playwright objects such as browser and page.
+      Ensure user input is properly sanitized and validated before execution, or avoid exposing Playwright objects to user code.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      cve: GHSA-4j36-39gm-8vq8
+      cwe: "CWE-94: Improper Control of Generation of Code ('Code Injection')"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+      references:
+        - https://github.com/OneUptime/oneuptime/security/advisories/GHSA-4j36-39gm-8vq8
+    mode: taint
+    pattern-sources:
+      - pattern: req.body
+      - pattern: req.query
+      - pattern: req.params
+      - pattern: req.body.$FIELD
+      - pattern: req.query.$FIELD
+      - pattern: req.params.$FIELD
+      - pattern: process.argv[$INDEX]
+      - pattern: process.argv.slice($INDEX)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: vm.runInNewContext($CODE, { ..., browser, ... })
+              - pattern: vm.runInNewContext($CODE, { ..., page, ... })
+              - pattern: vm.runInThisContext($CODE)
+              - pattern: vm.runInContext($CODE, ...)
+              - pattern: $PAGE.evaluate($CODE)
+              - pattern: $PAGE.evaluateHandle($CODE)
+              - pattern: $PAGE.addScriptTag({ content: $CODE })
+              - pattern: exec($CMD)
+              - pattern: execSync($CMD)
+              - pattern: spawn($CMD, ...)
+              - pattern: child_process.exec($CMD, ...)
+          - focus-metavariable: $CODE
+      - patterns:
+          - pattern-either:
+              - pattern: vm.runInNewContext($CODE, { ..., browser, ... })
+              - pattern: vm.runInNewContext($CODE, { ..., page, ... })
+              - pattern: vm.runInThisContext($CODE)
+              - pattern: vm.runInContext($CODE, ...)
+              - pattern: $PAGE.evaluate($CODE)
+              - pattern: $PAGE.evaluateHandle($CODE)
+              - pattern: $PAGE.addScriptTag({ content: $CODE })
+              - pattern: exec($CMD)
+              - pattern: execSync($CMD)
+              - pattern: spawn($CMD, ...)
+              - pattern: child_process.exec($CMD, ...)
+          - focus-metavariable: $CMD
