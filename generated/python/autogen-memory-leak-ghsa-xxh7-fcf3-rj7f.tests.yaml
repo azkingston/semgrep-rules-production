@@ -1,0 +1,100 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-xxh7-fcf3-rj7f
+# Rule:      autogen-memory-leak-ghsa-xxh7-fcf3-rj7f.yaml
+# Language:  python
+# Grade:     F (0/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: 0/2 caught
+
+# TP-1: GzipHandler creating GzipRequest without proper callback wrapping for cleanup
+# Accuracy result: MISS ❌
+from org.eclipse.jetty.server.handler import GzipHandler
+from org.eclipse.jetty.server import Request
+
+class VulnerableGzipHandler(GzipHandler):
+    def handle(self, target, baseRequest, request, response):
+        # Creates GzipRequest for inflation but doesn't wrap callback
+        # when only inflation is needed (no deflation)
+        if request.getHeader('Content-Encoding') == 'gzip':
+            gzipRequest = GzipRequest(request)
+            # Missing proper callback wrapping for cleanup
+# ruleid: autogen-memory-leak-ghsa-xxh7-fcf3-rj7f
+            return super().handle(target, baseRequest, gzipRequest, response)
+
+# TP-2: Manual GzipRequest creation without calling destroy() method
+# Accuracy result: MISS ❌
+import org.eclipse.jetty.server.handler.gzip.GzipRequest
+from org.eclipse.jetty.server import Handler
+
+class LeakyInflationHandler(Handler):
+    def handle(self, target, baseRequest, request, response):
+        if 'gzip' in request.getHeader('Content-Encoding', ''):
+            # Creates inflated request but no destroy() call
+            inflatedRequest = GzipRequest(request)
+            self.processRequest(inflatedRequest)
+            # Missing: inflatedRequest.destroy()
+            return True
+# ruleid: autogen-memory-leak-ghsa-xxh7-fcf3-rj7f
+        return False
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: 2/2 clean
+
+# FP-1: Proper cleanup with try-finally ensuring destroy() is called
+# Accuracy result: CLEAN ✅
+# ok: from org.eclipse.jetty.server.handler import GzipHandler
+# ok: 
+# ok: class SafeGzipHandler(GzipHandler):
+# ok:     def handle(self, target, baseRequest, request, response):
+# ok:         try:
+# ok:             gzipRequest = None
+# ok:             if request.getHeader('Content-Encoding') == 'gzip':
+# ok:                 gzipRequest = GzipRequest(request)
+# ok:             return super().handle(target, baseRequest, gzipRequest or request, response)
+# ok:         finally:
+# ok:             if gzipRequest:
+# ok:                 gzipRequest.destroy()
+
+# FP-2: Standard GzipHandler usage where framework handles resource management
+# Accuracy result: CLEAN ✅
+# ok: from org.eclipse.jetty.server.handler import GzipHandler
+# ok: 
+# ok: class ConfiguredGzipHandler:
+# ok:     def __init__(self):
+# ok:         # Standard Jetty GzipHandler usage - framework handles cleanup
+# ok:         self.handler = GzipHandler()
+# ok:         self.handler.setMinGzipSize(1024)
+# ok:     
+# ok:     def configure_server(self, server):
+# ok:         server.setHandler(self.handler)
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: Conditional callback wrapping - cleanup depends on runtime conditions and implementation of maybe_wrap_callback → SILENT
+# from org.eclipse.jetty.server.handler.gzip import GzipRequest
+# 
+# class ConditionalGzipHandler:
+#     def handle_request(self, request, callback):
+#         gzipRequest = None
+#         if self.needs_inflation(request):
+#             gzipRequest = GzipRequest(request)
+#         
+#         # Callback might or might not handle cleanup depending on conditions
+#         wrapped_callback = self.maybe_wrap_callback(callback, gzipRequest)
+#         return self.process_with_callback(gzipRequest or request, wrapped_callback)
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   F 🔴
+# Score:   0/100
+# TP rate: 0% (0/2)
+# FP rate: 0% (0/2 false alarms)
+# Edges:   0/1 fired
