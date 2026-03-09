@@ -1,87 +1,97 @@
 # Semgrep test file — GHSA-h343-gg57-2q67
 # Rule: autogen-remote-code-execution-rce-ghsa-h343-gg57-2q67
-# Generated: 2026-03-09T05:24:37.754Z
+# Generated: 2026-03-09T05:39:35.828Z
 
 # ── TRUE POSITIVES ─────────────────────────────────────────
 
-# TP-1: User input from req.body executed in vm
+# TP-1: User input from req.body executed in vm.runInNewContext
 const vm = require('vm');
-const userInput = req.body.code;
+const userCode = req.body.code;
 # ruleid: autogen-remote-code-execution-rce-ghsa-h343-gg57-2q67
-vm.runInNewContext(userInput);
+vm.runInNewContext(userCode);
 
-# TP-2: Async/await pattern with user input from req.query
+# TP-2: User input from req.query executed in vm.runInThisContext
 const vm = require('vm');
-const userCode = req.query.script;
-async function execute() {
-  await vm.runInNewContext(userCode);
-}
+const userInput = req.query.script;
 # ruleid: autogen-remote-code-execution-rce-ghsa-h343-gg57-2q67
-execute();
+vm.runInThisContext(userInput);
 
-# TP-3: Nested function call with user input from req.params
+# TP-3: User input from req.params executed in vm.runInContext
 const vm = require('vm');
-const code = req.params.code;
-function runCode() {
+let code = req.params.code;
+# ruleid: autogen-remote-code-execution-rce-ghsa-h343-gg57-2q67
+vm.runInContext(code, vm.createContext({}));
+
+# TP-4: Async function executing user code in vm.runInNewContext
+const vm = require('vm');
+async function executeUserCode() {
+  const code = await getUserCode();
   vm.runInNewContext(code);
 }
 # ruleid: autogen-remote-code-execution-rce-ghsa-h343-gg57-2q67
-runCode();
+executeUserCode();
 
-# TP-4: User input stored in variable then passed to vm
+# TP-5: Nested function calls executing user code in vm.runInThisContext
 const vm = require('vm');
-let userScript = getUserScript();
+function executeNested(userCode) {
+  function innerExecute(code) {
+    vm.runInThisContext(code);
+  }
+  innerExecute(userCode);
+}
 # ruleid: autogen-remote-code-execution-rce-ghsa-h343-gg57-2q67
-vm.runInNewContext(userScript);
-
-# TP-5: Direct user input from req.body executed in vm
-const vm = require('vm');
-const script = req.body.script;
-# ruleid: autogen-remote-code-execution-rce-ghsa-h343-gg57-2q67
-vm.runInNewContext(script);
+executeNested(req.body.code);
 
 # ── FALSE POSITIVES ────────────────────────────────────────
 
-# FP-1: Hardcoded safe code executed in vm
+# FP-1: Hardcoded safe code executed in vm.runInNewContext
 const vm = require('vm');
 const safeCode = 'console.log("Hello, World!")';
 # ok: autogen-remote-code-execution-rce-ghsa-h343-gg57-2q67
 vm.runInNewContext(safeCode);
 
-# FP-2: Sanitized user input executed in vm
+# FP-2: Sanitized user input executed in vm.runInNewContext
 const vm = require('vm');
-const sanitizedInput = sanitize(req.body.code);
+const userInput = req.body.code;
+const sanitizedCode = sanitize(userInput);
 # ok: autogen-remote-code-execution-rce-ghsa-h343-gg57-2q67
-vm.runInNewContext(sanitizedInput);
+vm.runInNewContext(sanitizedCode);
 
-# FP-3: Predefined script executed in vm
+# FP-3: Hardcoded safe code executed in vm.runInThisContext
 const vm = require('vm');
-const predefinedScript = getPredefinedScript();
+const safeCode = 'console.log("Secure Execution")';
 # ok: autogen-remote-code-execution-rce-ghsa-h343-gg57-2q67
-vm.runInNewContext(predefinedScript);
+vm.runInThisContext(safeCode);
 
-# FP-4: Static code execution in vm
+# FP-4: Static code executed in vm.runInContext
 const vm = require('vm');
-const code = 'console.log("Safe execution")';
+const code = 'console.log("Static Code")';
 # ok: autogen-remote-code-execution-rce-ghsa-h343-gg57-2q67
-vm.runInNewContext(code);
+vm.runInContext(code, vm.createContext({}));
 
-# FP-5: Another example of hardcoded safe code
+# FP-5: Nested function calls executing hardcoded safe code
 const vm = require('vm');
-const safeCode = 'console.log("Secure")';
+function executeSafe() {
+  const safeCode = 'console.log("Nested Safe Execution")';
+  vm.runInThisContext(safeCode);
+}
 # ok: autogen-remote-code-execution-rce-ghsa-h343-gg57-2q67
-vm.runInNewContext(safeCode);
+executeSafe();
 
 # ── EDGE CASES (todo — does not fail CI) ───────────────────
 
-# EDGE-1: Config-driven script execution — debatable
+# EDGE-1: Config-driven execution — debatable
 const vm = require('vm');
-const configScript = getConfigScript();
+const config = { allowExecution: true };
+if (config.allowExecution) {
+  const userCode = req.body.code;
+  vm.runInNewContext(userCode);
 # todoruleid: autogen-remote-code-execution-rce-ghsa-h343-gg57-2q67
-vm.runInNewContext(configScript);
+}
 
-# EDGE-2: Sanitized but still risky user input
+# EDGE-2: Sanitized input but still risky
 const vm = require('vm');
-let userCode = sanitize(req.query.code);
+let userInput = req.body.code;
+userInput = sanitize(userInput);
 # todook: autogen-remote-code-execution-rce-ghsa-h343-gg57-2q67
-vm.runInNewContext(userCode);
+vm.runInNewContext(userInput);
