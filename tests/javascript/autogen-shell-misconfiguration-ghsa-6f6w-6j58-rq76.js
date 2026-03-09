@@ -1,94 +1,83 @@
 # Semgrep test file — GHSA-6f6w-6j58-rq76
 # Rule: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
-# Generated: 2026-03-09T05:38:24.952Z
+# Generated: 2026-03-09T05:54:04.703Z
 
 # ── TRUE POSITIVES ─────────────────────────────────────────
 
 # TP-1: Express req.body input to exec
 const { exec } = require('child_process');
 const userInput = req.body.command;
-exec(userInput, (error, stdout, stderr) => {
-  if (error) {
-    console.error(`exec error: ${error}`);
-    return;
-  }
-  console.log(`stdout: ${stdout}`);
 # ruleid: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
-});
+exec(userInput);
 
 # TP-2: Express req.query input to exec
 const { exec } = require('child_process');
-const userCommand = req.query.cmd;
-# ruleid: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
-exec(userCommand);
-
-# TP-3: User input stored in variable then passed to exec
-const { exec } = require('child_process');
-let command = getUserInput();
+let command = req.query.cmd;
 # ruleid: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
 exec(command);
 
-# TP-4: Async/await pattern with user input
+# TP-3: Express req.params input to exec
+const { exec } = require('child_process');
+const userCommand = req.params.command;
+# ruleid: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
+exec(userCommand);
+
+# TP-4: User input stored in variable then passed to exec
+const { exec } = require('child_process');
+let cmd = userInput;
+# ruleid: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
+exec(cmd);
+
+# TP-5: Async/await pattern with user input to exec
 const { exec } = require('child_process');
 async function runCommand() {
-  const cmd = await getUserInputAsync();
+  const cmd = await getUserInput();
   exec(cmd);
-}
 # ruleid: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
-runCommand();
-
-# TP-5: Nested function call with Express req.params input
-const { exec } = require('child_process');
-function executeCommand(cmd) {
-  exec(cmd);
 }
-const userCmd = req.params.command;
-# ruleid: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
-executeCommand(userCmd);
 
 # ── FALSE POSITIVES ────────────────────────────────────────
 
 # FP-1: Hardcoded safe command
 const { exec } = require('child_process');
 # ok: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
-exec('ls -la');
+exec('echo Hello World');
 
-# FP-2: Hardcoded safe command stored in a variable
+# FP-2: Stored hardcoded safe command
 const { exec } = require('child_process');
-const safeCommand = 'echo Hello World';
+let safeCommand = 'ls -la';
 # ok: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
 exec(safeCommand);
 
 # FP-3: Sanitized user input before exec
 const { exec } = require('child_process');
-const userInput = req.body.command;
 const sanitizedInput = sanitize(userInput);
 # ok: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
 exec(sanitizedInput);
 
-# FP-4: Direct execution of a safe command variable
+# FP-4: Function with hardcoded safe command
 const { exec } = require('child_process');
-const command = 'ls';
+function runSafeCommand() {
+  exec('date');
 # ok: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
-exec(command);
+}
 
-# FP-5: Predefined command from a safe source
+# FP-5: Variable with hardcoded safe command
 const { exec } = require('child_process');
-const command = getPredefinedCommand();
+const command = 'uptime';
 # ok: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
 exec(command);
 
 # ── EDGE CASES (todo — does not fail CI) ───────────────────
 
-# EDGE-1: Config-driven command execution — debatable
+# EDGE-1: Config-driven command execution
 const { exec } = require('child_process');
-const config = require('./config');
+const configCommand = config.get('defaultCommand');
 # todoruleid: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
-exec(config.shellCommand);
+exec(configCommand);
 
-# EDGE-2: Sanitized but still risky due to potential incomplete sanitization
+# EDGE-2: Sanitized but still risky user input
 const { exec } = require('child_process');
-let userInput = req.body.command;
-userInput = sanitize(userInput);
+const userCommand = sanitize(req.body.command);
 # todook: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
-exec(userInput);
+exec(userCommand);
