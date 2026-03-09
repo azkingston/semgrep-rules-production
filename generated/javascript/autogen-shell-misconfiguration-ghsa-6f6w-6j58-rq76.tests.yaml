@@ -1,0 +1,128 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-6f6w-6j58-rq76
+# Rule:      autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76.yaml
+# Language:  javascript
+# Grade:     F (0/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/javascript/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: undefined/undefined caught
+
+# TP-1: vulnerable configuration with link chain to bash shell allowing escape bypass
+# Accuracy result: N/A
+import fs from "node:fs";
+import { exec } from "node:child_process";
+import { Shescape } from "shescape";
+import which from "which";
+
+const shell = which.sync("bash");
+const linkToShell = "./csh";
+const linkToLink = "./link";
+
+fs.symlinkSync(shell, linkToShell);
+fs.symlinkSync(linkToShell, linkToLink);
+
+const execOptions = {
+  shell: linkToLink,
+};
+
+const shescape = new Shescape({
+  shell: execOptions.shell,
+});
+
+const userInput = "a=:~";
+exec(`echo Hello ${shescape.escape(userInput)}`, { shell: execOptions.shell }, (error, stdout) => {
+  console.log(stdout);
+# ruleid: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
+});
+
+# TP-2: vulnerable shell misconfiguration with double symlink leading to command injection potential
+# Accuracy result: N/A
+import fs from "node:fs";
+import { spawn } from "node:child_process";
+import { Shescape } from "shescape";
+
+const originalShell = "/bin/sh";
+const firstLink = "./mysh";
+const secondLink = "./shell_link";
+
+fs.symlinkSync(originalShell, firstLink);
+fs.symlinkSync(firstLink, secondLink);
+
+const shescape = new Shescape({
+  shell: secondLink,
+});
+
+const maliciousInput = "$(whoami)";
+const escaped = shescape.escape(maliciousInput);
+# ruleid: autogen-shell-misconfiguration-ghsa-6f6w-6j58-rq76
+spawn("echo", [escaped], { shell: secondLink });
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: NaN/undefined clean
+
+# FP-1: safe direct shell path without symlinks
+# Accuracy result: N/A
+# ok: import { Shescape } from "shescape";
+# ok: import { exec } from "node:child_process";
+# ok: 
+# ok: const shescape = new Shescape({
+# ok:   shell: "/bin/bash",
+# ok: });
+# ok: 
+# ok: const userInput = "a=:~";
+# ok: exec(`echo Hello ${shescape.escape(userInput)}`, { shell: "/bin/bash" }, (error, stdout) => {
+# ok:   console.log(stdout);
+# ok: });
+
+# FP-2: safe single-level symlink configuration
+# Accuracy result: N/A
+# ok: import fs from "node:fs";
+# ok: import { Shescape } from "shescape";
+# ok: import { exec } from "node:child_process";
+# ok: 
+# ok: const directLink = "./bash_link";
+# ok: fs.symlinkSync("/bin/bash", directLink);
+# ok: 
+# ok: const shescape = new Shescape({
+# ok:   shell: directLink,
+# ok: });
+# ok: 
+# ok: const userInput = "test_input";
+# ok: const escaped = shescape.escape(userInput);
+# ok: exec(`echo ${escaped}`, { shell: directLink });
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: environment-dependent shell configuration with potential link chain - vulnerability depends on runtime environment → N/A
+# import fs from "node:fs";
+# import { Shescape } from "shescape";
+# import { exec } from "node:child_process";
+# 
+# const shellPath = process.env.CUSTOM_SHELL || "/bin/bash";
+# const linkPath = "./env_shell";
+# 
+# if (fs.existsSync(shellPath)) {
+#   fs.symlinkSync(shellPath, linkPath);
+#   fs.symlinkSync(linkPath, "./final_shell");
+# }
+# 
+# const shescape = new Shescape({
+#   shell: "./final_shell",
+# });
+# 
+# const userInput = "dynamic_input";
+# exec(`echo ${shescape.escape(userInput)}`, { shell: "./final_shell" });
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   F 🔴
+# Score:   0/100
+# TP rate: 0% (undefined/undefined)
+# FP rate: 0% (undefined/undefined false alarms)
