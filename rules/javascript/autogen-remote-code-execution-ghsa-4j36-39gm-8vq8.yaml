@@ -1,18 +1,17 @@
 # ═══════════════════════════════════════════════════
-# AutoGen Rule — GHSA-4j36-39gm-8vq8
-# Grade: A (100/100) 🟢
-# TP: 100%  FP: 0%  Attempts: 1/3
-# Generated: 2026-03-09T07:06:10.251Z
+# AutoGen Rule: GHSA-4j36-39gm-8vq8
+# Grade: F (0/100) 🔴
+# TP: 0%  FP: 0%  Attempts: 1/3
+# Generated: 2026-03-09T07:12:31.693Z
 # ═══════════════════════════════════════════════════
+
 rules:
   - id: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
     message: >-
-      Remote Code Execution detected. User-controlled input from request parameters, command line arguments,
-      or browser location is being passed to command execution or code evaluation functions without proper
-      sanitization. This allows attackers to execute arbitrary system commands or JavaScript code. This
-      vulnerability is particularly dangerous in synthetic monitoring contexts where untrusted Playwright
-      code can access live browser objects. Always validate and sanitize user input before passing it to
-      dangerous functions.
+      Remote Code Execution via command injection detected. User-controlled input is being passed to a
+      command execution function without proper sanitization. This allows attackers to inject arbitrary
+      system commands. Validate and sanitize all user input before passing to exec, execSync, spawn,
+      or other command execution functions.
     languages: [javascript, typescript]
     severity: ERROR
     metadata:
@@ -31,29 +30,55 @@ rules:
       - pattern: req.body.$FIELD
       - pattern: req.query.$FIELD
       - pattern: req.params.$FIELD
-      - pattern: location.search
-      - pattern: document.URL
+      - pattern: request.body
+      - pattern: request.query
+      - pattern: request.params
+      - pattern: request.body.$FIELD
+      - pattern: request.query.$FIELD
+      - pattern: request.params.$FIELD
+      - pattern: request.headers
+      - pattern: request.headers.$FIELD
+      - pattern: req.headers
+      - pattern: req.headers.$FIELD
       - pattern: window.location
-      - pattern: process.argv
-      - pattern: process.argv[$INDEX]
+      - pattern: document.URL
+      - pattern: location.search
+      - pattern: url.parse($REQ.url, true).query
+      - pattern: url.parse($REQ.url, true).query.$FIELD
+    pattern-propagators:
+      - patterns:
+          - pattern: Buffer.from($X, 'base64').toString('utf8')
+          - focus-metavariable: $X
+      - patterns:
+          - pattern: Buffer.from($X, 'base64').toString(...)
+          - focus-metavariable: $X
+      - patterns:
+          - pattern: JSON.parse($X)
+          - focus-metavariable: $X
+      - patterns:
+          - pattern: JSON.parse($X).$FIELD
+          - focus-metavariable: $X
+      - patterns:
+          - pattern: $FUNC($X)
+          - metavariable-pattern:
+              metavariable: $FUNC
+              patterns:
+                - pattern-either:
+                    - pattern: base64Decode
+                    - pattern: parseJSON
+          - focus-metavariable: $X
     pattern-sanitizers:
       - pattern: sanitize($X)
-      - pattern: escape($X)
       - pattern: validate($X)
-      - pattern: escapeShellArg($X)
+      - pattern: escape($X)
       - pattern: shellEscape($X)
-      - pattern: $X.replace(/[;&|`$()]/g, "")
-      - pattern: $X.replace(/[^a-zA-Z0-9]/g, "")
+      - pattern: shellescape($X)
+      - patterns:
+          - pattern: $X.replace(/[;&|`$(){}[\]\\]/g, "")
       - patterns:
           - pattern: $X
           - pattern-inside: |
-              if ($ALLOWLIST.includes($X)) {
-                ...
-              }
-      - patterns:
-          - pattern: $X
-          - pattern-inside: |
-              if ($X === 'ls' || $X === 'pwd' || $X === 'whoami') {
+              if (!/^[a-zA-Z0-9_-]+$/.test($X)) {
                 ...
               }
     pattern-sinks:
@@ -62,31 +87,16 @@ rules:
               - pattern: exec($CMD, ...)
               - pattern: execSync($CMD, ...)
               - pattern: spawn($CMD, ...)
-              - pattern: spawnSync($CMD, ...)
+              - pattern: execFile($CMD, ...)
+              - pattern: fork($CMD, ...)
               - pattern: child_process.exec($CMD, ...)
               - pattern: child_process.execSync($CMD, ...)
               - pattern: child_process.spawn($CMD, ...)
-              - pattern: child_process.spawnSync($CMD, ...)
+              - pattern: child_process.execFile($CMD, ...)
+              - pattern: child_process.fork($CMD, ...)
               - pattern: $CP.exec($CMD, ...)
               - pattern: $CP.execSync($CMD, ...)
               - pattern: $CP.spawn($CMD, ...)
-              - pattern: $CP.spawnSync($CMD, ...)
-              - pattern: eval($CODE)
-              - pattern: Function($CODE)
-              - pattern: new Function($CODE)
-              - pattern: vm.runInNewContext($CODE, ...)
-              - pattern: vm.runInThisContext($CODE, ...)
-              - pattern: vm.runInContext($CODE, ...)
-              - pattern: $VM.runInNewContext($CODE, ...)
-              - pattern: $VM.runInThisContext($CODE, ...)
-              - pattern: $VM.runInContext($CODE, ...)
+              - pattern: $CP.execFile($CMD, ...)
+              - pattern: $CP.fork($CMD, ...)
           - focus-metavariable: $CMD
-          - focus-metavariable: $CODE
-          - pattern-not: exec("ls")
-          - pattern-not: exec("pwd")  
-          - pattern-not: exec("whoami")
-          - pattern-not: execSync("ls")
-          - pattern-not: execSync("pwd")
-          - pattern-not: execSync("whoami")
-          - pattern-not: eval("console.log('test')")
-          - pattern-not: eval("1 + 1")
