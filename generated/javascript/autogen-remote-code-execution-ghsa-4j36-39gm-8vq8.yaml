@@ -1,0 +1,87 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-4j36-39gm-8vq8
+# Language:  javascript
+# Grade:     F (0/100) 🔴
+# TP Rate:   0%
+# FP Rate:   0%
+# Attempts:  1 of 3
+# Generated: 2026-03-09T07:07:27.262Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+    message: >-
+      Remote Code Execution via exposed Playwright browser object detected. User-controlled code executed in vm
+      context has access to live Playwright browser objects, allowing attackers to spawn arbitrary executables
+      via browser.browserType().launch() with custom executablePath. This bypasses vm sandboxing by directly
+      using exposed host capabilities. Remove dangerous host objects from vm context or use proper sandboxing
+      that doesn't expose browser/page objects to untrusted code.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      cve: GHSA-4j36-39gm-8vq8
+      cwe: "CWE-94: Improper Control of Generation of Code ('Code Injection')"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+      references:
+        - https://github.com/OneUptime/oneuptime/security/advisories/GHSA-4j36-39gm-8vq8
+    mode: taint
+    pattern-sources:
+      - pattern: req.body
+      - pattern: req.query
+      - pattern: req.params
+      - pattern: req.body.$FIELD
+      - pattern: req.query.$FIELD
+      - pattern: req.params.$FIELD
+      - pattern: request.body
+      - pattern: request.query
+      - pattern: request.params
+      - pattern: request.body.$FIELD
+      - pattern: request.query.$FIELD
+      - pattern: request.params.$FIELD
+      - pattern: window.location
+      - pattern: document.URL
+      - pattern: location.search
+      - patterns:
+          - pattern: $OBJ.customCode
+          - pattern-inside: |
+              $OBJ = { ..., customCode: $CODE, ... }
+      - patterns:
+          - pattern: $OBJ.script
+          - pattern-inside: |
+              $OBJ = { ..., script: $CODE, ... }
+    pattern-sanitizers:
+      - pattern: sanitize($X)
+      - pattern: validate($X)
+      - pattern: escape($X)
+      - pattern: allowlist($X)
+      - patterns:
+          - pattern: $X
+          - pattern-inside: |
+              if ($ALLOWLIST.includes($X)) {
+                ...
+              }
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: vm.runInNewContext($CODE, { ..., browser: $BROWSER, ... }, ...)
+              - pattern: vm.runInThisContext($CODE, { ..., browser: $BROWSER, ... }, ...)
+              - pattern: vm.runInContext($CODE, { ..., browser: $BROWSER, ... }, ...)
+              - pattern: $VM.runInNewContext($CODE, { ..., browser: $BROWSER, ... }, ...)
+              - pattern: $VM.runInThisContext($CODE, { ..., browser: $BROWSER, ... }, ...)
+              - pattern: $VM.runInContext($CODE, { ..., browser: $BROWSER, ... }, ...)
+              - pattern: vm.runInNewContext($CODE, { ..., page: $PAGE, ... }, ...)
+              - pattern: vm.runInThisContext($CODE, { ..., page: $PAGE, ... }, ...)
+              - pattern: vm.runInContext($CODE, { ..., page: $PAGE, ... }, ...)
+              - pattern: $VM.runInNewContext($CODE, { ..., page: $PAGE, ... }, ...)
+              - pattern: $VM.runInThisContext($CODE, { ..., page: $PAGE, ... }, ...)
+              - pattern: $VM.runInContext($CODE, { ..., page: $PAGE, ... }, ...)
+          - focus-metavariable: $CODE
+      - patterns:
+          - pattern-either:
+              - pattern: $BROWSER.browserType().launch({ ..., executablePath: $PATH, ... })
+              - pattern: $BROWSER.browserType().launch({ ..., args: $ARGS, ... })
+              - pattern: $BROWSERTYPE.launch({ ..., executablePath: $PATH, ... })
+              - pattern: $BROWSERTYPE.launch({ ..., args: $ARGS, ... })
+          - focus-metavariable: $PATH
+          - focus-metavariable: $ARGS
