@@ -1,45 +1,41 @@
 # Semgrep test file — GHSA-4j36-39gm-8vq8
 # Rule: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-# Generated: 2026-03-09T05:37:18.170Z
+# Generated: 2026-03-09T05:52:54.878Z
 
 # ── TRUE POSITIVES ─────────────────────────────────────────
 
-# TP-1: Exec with user input from req.body
+# TP-1: Direct execution of user input from request body
 const { exec } = require('child_process');
 const userInput = req.body.command;
-exec(userInput, (error, stdout, stderr) => {
-  console.log(stdout);
 # ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-});
+exec(userInput);
 
-# TP-2: Exec with user input from req.query
+# TP-2: Using Playwright browser object with user input
+const { browser } = require('playwright');
+async function launchBrowser(userInput) {
+  await browser.browserType().launch({ executablePath: userInput });
+# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+}
+
+# TP-3: Execution of command from query parameter
 const { exec } = require('child_process');
 let command = req.query.cmd;
 # ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
 exec(command);
 
-# TP-3: Async/await with user input from req.params
+# TP-4: Execution of command stored in a variable from a function
 const { exec } = require('child_process');
-const command = req.params.command;
+let cmd = getUserInput();
+# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
+exec(cmd);
+
+# TP-5: Async/await pattern with user input execution
+const { exec } = require('child_process');
 async function runCommand() {
-  await exec(command);
+  let userCommand = await getUserCommandAsync();
+  exec(userCommand);
+# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
 }
-# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-runCommand();
-
-# TP-4: Exec with user input stored in variable
-const { exec } = require('child_process');
-let userCommand = getUserInput();
-# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-exec(userCommand);
-
-# TP-5: Nested function call with user input
-const { exec } = require('child_process');
-function executeCommand(cmd) {
-  exec(cmd);
-}
-# ruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-executeCommand(req.body.cmd);
 
 # ── FALSE POSITIVES ────────────────────────────────────────
 
@@ -48,42 +44,41 @@ const { exec } = require('child_process');
 # ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
 exec('echo Hello World');
 
-# FP-2: Hardcoded safe command stored in variable
+# FP-2: Execution of a hardcoded safe command stored in a variable
 const { exec } = require('child_process');
 const safeCommand = 'ls -la';
 # ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
 exec(safeCommand);
 
-# FP-3: Sanitized user input
+# FP-3: Execution with sanitized user input
 const { exec } = require('child_process');
-const sanitizedInput = sanitize(req.body.command);
+let sanitizedInput = sanitize(req.body.command);
 # ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
 exec(sanitizedInput);
 
-# FP-4: Nested function with hardcoded safe command
+# FP-4: Execution of a hardcoded safe command within a function
 const { exec } = require('child_process');
-function safeExecute() {
+function safeFunction() {
   exec('uptime');
+# ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
 }
-# ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-safeExecute();
 
-# FP-5: Hardcoded command in variable
+# FP-5: Execution of a static, safe command
 const { exec } = require('child_process');
-const command = 'date';
+const cmd = 'date';
 # ok: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-exec(command);
+exec(cmd);
 
 # ── EDGE CASES (todo — does not fail CI) ───────────────────
 
-# EDGE-1: Config-driven command execution
+# EDGE-1: Config-driven command execution — debatable safety
 const { exec } = require('child_process');
-const configCommand = config.get('defaultCommand');
+const config = require('./config');
 # todoruleid: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-exec(configCommand);
+exec(config.safeCommand);
 
-# EDGE-2: Sanitized but still risky user input
+# EDGE-2: Sanitized input but still risky due to inadequate sanitization
 const { exec } = require('child_process');
-let userCommand = sanitizeInput(req.body.command);
+let userInput = sanitize(req.body.command);
 # todook: autogen-remote-code-execution-ghsa-4j36-39gm-8vq8
-exec(userCommand);
+exec(userInput);
