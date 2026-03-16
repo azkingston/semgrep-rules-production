@@ -1,0 +1,105 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-73hc-m4hx-79pj
+# Rule:      autogen-information-disclosure-ghsa-73hc-m4hx-79pj.yaml
+# Language:  python
+# Grade:     A (100/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: 2/2 caught
+
+# TP-1: Health endpoint exposing system information without authentication
+# Accuracy result: PASS ✅
+from fastapi import APIRouter, Depends
+import platform
+import psutil
+
+@router.get("/api/health/detailed")
+async def detailed_health_check():
+    system_info = {
+        "platform": platform.system(),
+        "platform_version": platform.version(),
+        "python_version": platform.python_version(),
+        "cpu_count": psutil.cpu_count(),
+        "memory_total_gb": round(psutil.virtual_memory().total / (1024**3), 2)
+    }
+# ruleid: autogen-information-disclosure-ghsa-73hc-m4hx-79pj
+    return system_info
+
+# TP-2: Health endpoint exposing database path and platform info
+# Accuracy result: PASS ✅
+from fastapi import FastAPI, Depends
+import platform
+
+app = FastAPI()
+
+@app.get("/health/detailed")
+def get_system_health():
+    storage_info = {}
+    if hasattr(storage, 'db_path'):
+        storage_info["database_path"] = storage.db_path
+    
+    return {
+        "platform": platform.system(),
+        "platform_version": platform.version(),
+        "storage": storage_info
+# ruleid: autogen-information-disclosure-ghsa-73hc-m4hx-79pj
+    }
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: 2/2 clean
+
+# FP-1: System info endpoint with proper admin authentication required
+# Accuracy result: CLEAN ✅
+# ok: from fastapi import APIRouter, Depends
+# ok: from .auth import require_admin_access
+# ok: 
+# ok: @router.get("/api/health/detailed")
+# ok: async def detailed_health_check(user: AuthenticationResult = Depends(require_admin_access)):
+# ok:     system_info = {
+# ok:         "platform": platform.system(),
+# ok:         "platform_version": platform.version(),
+# ok:         "python_version": platform.python_version()
+# ok:     }
+# ok:     return system_info
+
+# FP-2: Basic health check returning only status without sensitive system information
+# Accuracy result: CLEAN ✅
+# ok: from fastapi import APIRouter
+# ok: 
+# ok: @router.get("/api/health")
+# ok: async def basic_health_check():
+# ok:     return {
+# ok:         "status": "healthy",
+# ok:         "timestamp": datetime.utcnow().isoformat()
+# ok:     }
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: Conditional system info exposure based on user scope - depends on implementation of get_current_user and scope checking → SILENT
+# from fastapi import APIRouter, Depends
+# from .auth import get_current_user
+# 
+# @router.get("/api/health/detailed")
+# async def detailed_health_check(user: AuthenticationResult = Depends(get_current_user)):
+#     if user.scope != 'admin':
+#         return {"status": "healthy"}
+#     
+#     return {
+#         "platform": platform.system(),
+#         "python_version": platform.python_version()
+#     }
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   A 🟢
+# Score:   100/100
+# TP rate: 100% (2/2)
+# FP rate: 0% (0/2 false alarms)
+# Edges:   0/1 fired
