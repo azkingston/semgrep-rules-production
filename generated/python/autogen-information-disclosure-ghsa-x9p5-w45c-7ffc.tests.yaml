@@ -1,0 +1,76 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-x9p5-w45c-7ffc
+# Rule:      autogen-information-disclosure-ghsa-x9p5-w45c-7ffc.yaml
+# Language:  python
+# Grade:     F (0/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: undefined/undefined caught
+
+# TP-1: token passed as URL parameter in API request
+# Accuracy result: N/A
+import requests
+
+def get_user_data(token):
+    url = f'https://gogs.example.com/api/v1/user?token={token}'
+    response = requests.get(url)
+# ruleid: autogen-information-disclosure-ghsa-x9p5-w45c-7ffc
+    return response.json()
+
+# TP-2: access_token passed as query parameter in Gogs API call
+# Accuracy result: N/A
+from urllib.parse import urlencode
+import requests
+
+def api_call(access_token, endpoint):
+    params = {'access_token': access_token, 'repo': 'myrepo'}
+    url = f'https://gogs.example.com/api/v1/{endpoint}?' + urlencode(params)
+# ruleid: autogen-information-disclosure-ghsa-x9p5-w45c-7ffc
+    return requests.get(url)
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: NaN/undefined clean
+
+# FP-1: token properly passed in Authorization header
+# Accuracy result: N/A
+# ok: import requests
+# ok: 
+# ok: def get_user_data(token):
+# ok:     headers = {'Authorization': f'token {token}'}
+# ok:     response = requests.get('https://gogs.example.com/api/v1/user', headers=headers)
+# ok:     return response.json()
+
+# FP-2: safe query params with proper header auth to different service
+# Accuracy result: N/A
+# ok: import requests
+# ok: 
+# ok: def api_call(access_token):
+# ok:     headers = {'Authorization': f'Bearer {access_token}'}
+# ok:     url = 'https://github.com/api/v1/user?page=1'
+# ok:     return requests.get(url, headers=headers)
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: conditional token placement - vulnerable path exists but may not be taken → N/A
+# import requests
+# 
+# def debug_api(token, use_header=True):
+#     if use_header:
+#         headers = {'Authorization': f'token {token}'}
+#         return requests.get('https://gogs.example.com/api/v1/user', headers=headers)
+#     else:
+#         return requests.get(f'https://gogs.example.com/api/v1/user?token={token}')
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   F 🔴
+# Score:   0/100
+# TP rate: 0% (undefined/undefined)
+# FP rate: 0% (undefined/undefined false alarms)
