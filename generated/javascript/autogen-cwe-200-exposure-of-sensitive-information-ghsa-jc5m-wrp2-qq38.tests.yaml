@@ -1,0 +1,92 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-jc5m-wrp2-qq38
+# Rule:      autogen-cwe-200-exposure-of-sensitive-information-ghsa-jc5m-wrp2-qq38.yaml
+# Language:  javascript
+# Grade:     F (0/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/javascript/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: undefined/undefined caught
+
+# TP-1: forgot password endpoint returning sanitized user object with PII
+# Accuracy result: N/A
+export async function forgotPassword(data) {
+  const user = await this.userService.readUserByEmail(data.user.email);
+  if (!user) throw new Error('User not found');
+  
+  // Send reset email logic...
+  await sendPasswordResetEmail(user.email);
+  
+  return sanitizeUser(user); // Returns full user object with PII
+# ruleid: autogen-cwe-200-exposure-of-sensitive-information-ghsa-jc5m-wrp2-qq38
+}
+
+# TP-2: password reset method explicitly returning user PII data
+# Accuracy result: N/A
+class AccountService {
+  async resetPassword(email) {
+    const user = await User.findByEmail(email);
+    if (!user) return { error: 'User not found' };
+    
+    await this.generateResetToken(user);
+    
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      status: user.status,
+      createdDate: user.createdDate
+    }; // Explicitly returning PII in forgot password response
+  }
+# ruleid: autogen-cwe-200-exposure-of-sensitive-information-ghsa-jc5m-wrp2-qq38
+}
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: NaN/undefined clean
+
+# FP-1: secure forgot password with generic response message
+# Accuracy result: N/A
+# ok: export async function forgotPassword(data) {
+# ok:   const user = await this.userService.readUserByEmail(data.user.email);
+# ok:   if (!user) {
+# ok:     return { message: 'If this email exists, a reset link has been sent.' };
+# ok:   }
+# ok:   
+# ok:   await sendPasswordResetEmail(user.email);
+# ok:   
+# ok:   return { message: 'If this email exists, a reset link has been sent.' }; // Generic response
+# ok: }
+
+# FP-2: authenticated endpoint returning user data is acceptable
+# Accuracy result: N/A
+# ok: async function loginUser(credentials) {
+# ok:   const user = await this.userService.authenticate(credentials);
+# ok:   if (!user) throw new Error('Invalid credentials');
+# ok:   
+# ok:   return sanitizeUser(user); // Returning user data after successful authentication is OK
+# ok: }
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: forgot password returning user existence confirmation - still leaks information but no direct PII → N/A
+# export async function forgotPassword(data) {
+#   const user = await this.userService.readUserByEmail(data.user.email);
+#   if (!user) return { success: false };
+#   
+#   await sendPasswordResetEmail(user.email);
+#   
+#   return { success: true, userExists: true }; // Returns confirmation but no direct PII
+# }
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   F 🔴
+# Score:   0/100
+# TP rate: 0% (undefined/undefined)
+# FP rate: 0% (undefined/undefined false alarms)
