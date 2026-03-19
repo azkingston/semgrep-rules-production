@@ -1,0 +1,79 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-hcff-qv74-7hr4
+# Language:  python
+# Grade:     C (50/100) 🟠
+# TP Rate:   50%
+# FP Rate:   0%
+# Attempts:  2 of 3
+# Generated: 2026-03-06T08:47:04.227Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-csrf-ghsa-hcff-qv74-7hr4
+    message: "CSRF vulnerability detected in login endpoint: credential-bearing requests are processed without CSRF protection, allowing attackers to force victim browsers into sessions with known credentials. This can cause user confusion, activity misattribution, and potential misuse of trusted user actions. Fix by implementing CSRF protection mechanisms such as: 1) Add CSRF tokens to login forms and validate them on submission, 2) Use SameSite cookie attributes, 3) Implement proper session management with CSRF tokens tied to browser session context, 4) Validate Origin/Referer headers for state-changing requests."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cve: GHSA-hcff-qv74-7hr4
+      cwe: "CWE-352: Cross-Site Request Forgery (CSRF)"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: MEDIUM
+      references:
+        - https://github.com/Forceu/Gokapi/security/advisories/GHSA-hcff-qv74-7hr4
+    pattern-either:
+      - patterns:
+          - pattern-inside: |
+              @$DECORATOR($ROUTE, methods=[$...METHODS])
+              def $FUNC(...):
+                ...
+          - pattern-either:
+              - pattern: $USERNAME = request.form.get($USER_FIELD)
+              - pattern: $PASSWORD = request.form.get($PASS_FIELD)
+              - pattern: $CREDENTIALS = request.form
+          - pattern-inside: |
+              def $FUNC(...):
+                ...
+                if $CONDITION:
+                  session[$KEY] = $VALUE
+                  ...
+          - metavariable-regex:
+              metavariable: $ROUTE
+              regex: .*(login|signin|authenticate).*
+          - pattern-not-inside: |
+              def $FUNC(...):
+                ...
+                if not validate_csrf_token(...):
+                  ...
+                ...
+          - pattern-not-inside: |
+              def $FUNC(...):
+                ...
+                csrf.protect()
+                ...
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(...):
+                ...
+          - pattern-either:
+              - pattern: $USER = request.form.get("username")
+              - pattern: $USER = request.form.get("user")  
+              - pattern: $PASS = request.form.get("password")
+          - pattern-inside: |
+              def $FUNC(...):
+                ...
+                if $AUTH_CHECK:
+                  session[$SESSION_KEY] = $SESSION_VALUE
+                  ...
+          - metavariable-regex:
+              metavariable: $FUNC
+              regex: .*(login|signin|authenticate).*
+          - pattern-not-inside: |
+              def $FUNC(...):
+                ...
+                if not $CSRF_TOKEN or not validate_csrf($CSRF_TOKEN):
+                  abort(403)
+                ...
+          - pattern-not-inside: |
+              @csrf.exempt
+              def $FUNC(...):
+                ...
