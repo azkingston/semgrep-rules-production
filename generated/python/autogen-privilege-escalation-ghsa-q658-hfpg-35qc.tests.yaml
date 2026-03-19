@@ -1,0 +1,73 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-q658-hfpg-35qc
+# Rule:      autogen-privilege-escalation-ghsa-q658-hfpg-35qc.yaml
+# Language:  python
+# Grade:     F (25/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: 1/2 caught
+
+# TP-1: User demotion without API key permission revocation
+# Accuracy result: PASS ✅
+def demote_user(user_id, new_rank):
+    user = get_user(user_id)
+    user.rank = new_rank
+    user.save()
+# ruleid: autogen-privilege-escalation-ghsa-q658-hfpg-35qc
+    # API keys retain old permissions - vulnerable!
+
+# TP-2: Rank update that leaves API key permissions intact
+# Accuracy result: MISS ❌
+class UserManager:
+    def update_user_rank(self, user_id, rank):
+        user = self.db.get_user(user_id)
+        user.rank = rank
+        self.db.save_user(user)
+# ruleid: autogen-privilege-escalation-ghsa-q658-hfpg-35qc
+        # Existing API keys still have ApiPermManageFileRequests/ApiPermManageLogs
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: 1/2 clean
+
+# FP-1: Proper user demotion with API key permission revocation
+# Accuracy result: FALSE ALARM ❌
+# ok: def demote_user_secure(user_id, new_rank):
+# ok:     user = get_user(user_id)
+# ok:     user.rank = new_rank
+# ok:     # Properly revoke API key permissions
+# ok:     for api_key in user.api_keys:
+# ok:         api_key.revoke_permissions(['ApiPermManageFileRequests', 'ApiPermManageLogs'])
+# ok:     user.save()
+
+# FP-2: New user creation with appropriate permissions
+# Accuracy result: CLEAN ✅
+# ok: def create_new_user(user_data):
+# ok:     user = User()
+# ok:     user.rank = user_data['rank']
+# ok:     user.permissions = get_permissions_for_rank(user.rank)
+# ok:     user.save()
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: Generic profile update that may include rank change - unclear if permissions are handled in separate process → SILENT
+# def update_user_profile(user_id, profile_data):
+#     user = get_user(user_id)
+#     if 'rank' in profile_data:
+#         user.rank = profile_data['rank']
+#         # Unclear if API permissions are handled elsewhere
+#     user.save()
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   F 🔴
+# Score:   25/100
+# TP rate: 50% (1/2)
+# FP rate: 50% (1/2 false alarms)
+# Edges:   0/1 fired
