@@ -1,0 +1,93 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Rule — GHSA-595m-wc8g-6qgc
+# Language:  python
+# Grade:     F (0/100) 🔴
+# TP Rate:   0%
+# FP Rate:   0%
+# Attempts:  1 of 3
+# Generated: 2026-03-06T08:38:41.089Z
+# ═══════════════════════════════════════════════════
+rules:
+  - id: autogen-server-side-request-forgery-ssrf-ghsa-595m-wc8g-6qgc
+    mode: taint
+    message: "SSRF vulnerability via HTTP redirect bypass detected. User-controlled URLs are passed to HTTP clients that follow redirects without validating redirect destinations, allowing attackers to bypass URL filtering and access internal services. Fix by: 1) Set allow_redirects=False in requests calls, 2) Implement custom redirect handling that validates each redirect destination, 3) Add host.docker.internal and Docker IP ranges to blocklists, 4) Validate all redirect Location headers against the same restrictions as initial URLs."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cve: GHSA-595m-wc8g-6qgc
+      cwe: "CWE-918: Server-Side Request Forgery (SSRF)"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+      references:
+        - "https://github.com/advisories/GHSA-595m-wc8g-6qgc"
+        - "https://cwe.mitre.org/data/definitions/918.html"
+        - "https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/"
+    pattern-sources:
+      - pattern-either:
+          - pattern: request.args.get(...)
+          - pattern: request.form.get(...)
+          - pattern: request.json
+          - pattern: request.json.get(...)
+          - pattern: request.get_json()
+          - pattern: request.data
+          - pattern: flask.request.args.get(...)
+          - pattern: flask.request.form.get(...)
+          - pattern: flask.request.json
+          - pattern: flask.request.get_json()
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: requests.get($URL, ...)
+              - pattern: requests.post($URL, ...)
+              - pattern: requests.put($URL, ...)
+              - pattern: requests.patch($URL, ...)
+              - pattern: requests.delete($URL, ...)
+              - pattern: requests.head($URL, ...)
+              - pattern: requests.options($URL, ...)
+              - pattern: requests.request($METHOD, $URL, ...)
+              - pattern: urllib.request.urlopen($URL, ...)
+              - pattern: urllib.request.urlretrieve($URL, ...)
+              - pattern: urllib2.urlopen($URL, ...)
+              - pattern: httpx.get($URL, ...)
+              - pattern: httpx.post($URL, ...)
+              - pattern: httpx.put($URL, ...)
+              - pattern: httpx.patch($URL, ...)
+              - pattern: httpx.delete($URL, ...)
+              - pattern: httpx.head($URL, ...)
+              - pattern: httpx.request($METHOD, $URL, ...)
+              - pattern: $SESSION.get($URL, ...)
+              - pattern: $SESSION.post($URL, ...)
+              - pattern: $SESSION.request($METHOD, $URL, ...)
+              - pattern: $CLIENT.get($URL, ...)
+              - pattern: $CLIENT.post($URL, ...)
+              - pattern: $CLIENT.request($METHOD, $URL, ...)
+          - pattern-not-either:
+              - pattern: requests.get($URL, allow_redirects=False, ...)
+              - pattern: requests.post($URL, allow_redirects=False, ...)
+              - pattern: requests.put($URL, allow_redirects=False, ...)
+              - pattern: requests.patch($URL, allow_redirects=False, ...)
+              - pattern: requests.delete($URL, allow_redirects=False, ...)
+              - pattern: requests.head($URL, allow_redirects=False, ...)
+              - pattern: requests.options($URL, allow_redirects=False, ...)
+              - pattern: requests.request($METHOD, $URL, allow_redirects=False, ...)
+              - pattern: httpx.get($URL, follow_redirects=False, ...)
+              - pattern: httpx.post($URL, follow_redirects=False, ...)
+              - pattern: httpx.put($URL, follow_redirects=False, ...)
+              - pattern: httpx.patch($URL, follow_redirects=False, ...)
+              - pattern: httpx.delete($URL, follow_redirects=False, ...)
+              - pattern: httpx.head($URL, follow_redirects=False, ...)
+              - pattern: httpx.request($METHOD, $URL, follow_redirects=False, ...)
+              - pattern: $SESSION.get($URL, allow_redirects=False, ...)
+              - pattern: $SESSION.post($URL, allow_redirects=False, ...)
+              - pattern: $SESSION.request($METHOD, $URL, allow_redirects=False, ...)
+          - focus-metavariable: $URL
+    pattern-sanitizers:
+      - pattern: validate_url($INPUT)
+      - pattern: sanitize_url($INPUT)
+      - pattern: url_validator($INPUT)
+      - pattern: check_url_safety($INPUT)
+      - pattern: is_safe_url($INPUT)
+      - pattern: whitelist_url($INPUT)
+      - pattern: verify_url_safety($INPUT)
+      - pattern: IsSSRFSafeURL($INPUT)
