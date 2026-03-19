@@ -1,0 +1,68 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-573f-x89g-hqp9
+# Rule:      autogen-improper-input-validation-ghsa-573f-x89g-hqp9.yaml
+# Language:  javascript
+# Grade:     B (75/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/javascript/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: 2/2 caught
+
+# TP-1: Regex parser missing end anchor allows matching 'application/json garbage'
+# Accuracy result: PASS ✅
+const fastify = require('fastify')();
+fastify.addContentTypeParser(/^application\/json/, (request, payload, done) => {
+  // Parser for application/json
+  done(null, payload);
+# ruleid: autogen-improper-input-validation-ghsa-573f-x89g-hqp9
+});
+
+# TP-2: Regex parser without end anchor vulnerable to trailing characters
+# Accuracy result: PASS ✅
+const fastify = require('fastify')();
+fastify.addContentTypeParser(/text\/plain/, { parseAs: 'string' }, (req, body, done) => {
+  done(null, body);
+# ruleid: autogen-improper-input-validation-ghsa-573f-x89g-hqp9
+});
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: 1/2 clean
+
+# FP-1: Regex parser with proper start and end anchors
+# Accuracy result: FALSE ALARM ❌
+# ok: const fastify = require('fastify')();
+# ok: fastify.addContentTypeParser(/^application\/json$/, (request, payload, done) => {
+# ok:   // Parser with proper anchors
+# ok:   done(null, payload);
+# ok: });
+
+# FP-2: String literal content type parser is not vulnerable
+# Accuracy result: CLEAN ✅
+# ok: const fastify = require('fastify')();
+# ok: fastify.addContentTypeParser('application/json', (request, payload, done) => {
+# ok:   // String-based parser is safe
+# ok:   done(null, payload);
+# ok: });
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: RegExp constructor with start anchor but missing end anchor - potentially vulnerable → SILENT
+# const fastify = require('fastify')();
+# const pattern = new RegExp('^application/xml');
+# fastify.addContentTypeParser(pattern, (request, payload, done) => {
+#   done(null, payload);
+# });
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   B 🟡
+# Score:   75/100
+# TP rate: 100% (2/2)
+# FP rate: 50% (1/2 false alarms)
+# Edges:   0/1 fired
