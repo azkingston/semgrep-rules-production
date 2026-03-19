@@ -1,0 +1,75 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-g48c-2wqr-h844
+# Rule:      autogen-insecure-deserialization-ghsa-g48c-2wqr-h844.yaml
+# Language:  python
+# Grade:     F (0/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: undefined/undefined caught
+
+# TP-1: Unsafe msgpack deserialization without allowlist restrictions
+# Accuracy result: N/A
+import msgpack
+from langgraph.checkpoint import JsonPlusSerializer
+
+serializer = JsonPlusSerializer()
+checkpoint_data = b'\x82\xa4data\xc7\x08\x01__main__\xa8MyObject'
+# ruleid: autogen-insecure-deserialization-ghsa-g48c-2wqr-h844
+deserialized = serializer.loads(checkpoint_data)
+
+# TP-2: Msgpack checkpoint with ExtType that could reconstruct dangerous objects
+# Accuracy result: N/A
+import msgpack
+from langgraph.checkpoint.sqlite import SqliteSaver
+
+checkpointer = SqliteSaver.from_conn_string(':memory:')
+malicious_checkpoint = msgpack.packb({'data': msgpack.ExtType(1, b'os.system')}, use_bin_type=True)
+# ruleid: autogen-insecure-deserialization-ghsa-g48c-2wqr-h844
+checkpointer.put({'configurable': {'thread_id': '1'}}, {'data': 'test'}, {})
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: NaN/undefined clean
+
+# FP-1: Safe msgpack deserialization with strict mode enabled
+# Accuracy result: N/A
+# ok: import os
+# ok: os.environ['LANGGRAPH_STRICT_MSGPACK'] = 'true'
+# ok: from langgraph.checkpoint import JsonPlusSerializer
+# ok: 
+# ok: serializer = JsonPlusSerializer(allowed_msgpack_modules=None)
+# ok: checkpoint_data = b'\x82\xa4data\xa4safe'
+# ok: deserialized = serializer.loads(checkpoint_data)
+
+# FP-2: Explicit allowlist with safe datetime objects
+# Accuracy result: N/A
+# ok: from langgraph.checkpoint import JsonPlusSerializer
+# ok: from datetime import datetime
+# ok: 
+# ok: serializer = JsonPlusSerializer(allowed_msgpack_modules=[('datetime', 'datetime')])
+# ok: safe_data = {'timestamp': datetime.now()}
+# ok: serialized = serializer.dumps(safe_data)
+# ok: deserialized = serializer.loads(serialized)
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: Default warn-and-allow mode with custom objects - generates warnings but still deserializes → N/A
+# from langgraph.checkpoint import JsonPlusSerializer
+# import custom_module
+# 
+# serializer = JsonPlusSerializer(allowed_msgpack_modules=True)
+# checkpoint_data = msgpack.packb({'obj': custom_module.CustomClass()}, default=msgpack.ExtType)
+# deserialized = serializer.loads(checkpoint_data)
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   F 🔴
+# Score:   0/100
+# TP rate: 0% (undefined/undefined)
+# FP rate: 0% (undefined/undefined false alarms)
