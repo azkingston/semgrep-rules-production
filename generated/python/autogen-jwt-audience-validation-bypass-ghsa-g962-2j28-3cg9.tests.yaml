@@ -1,0 +1,66 @@
+# ═══════════════════════════════════════════════════
+# AutoGen Test Cases — GHSA-g962-2j28-3cg9
+# Rule:      autogen-jwt-audience-validation-bypass-ghsa-g962-2j28-3cg9.yaml
+# Language:  python
+# Grade:     F (0/100)
+# Format:    Semgrep test format (semgrep --test compatible)
+# Usage:     semgrep --test generated/python/
+# ═══════════════════════════════════════════════════
+
+# HOW TO READ THIS FILE:
+#   Lines marked  "# ruleid: <id>"  MUST trigger the rule  (true positives)
+#   Lines marked  "# ok:"           MUST NOT trigger        (false positives)
+#   Lines marked  "# edge:"         are informational only
+
+# ── TRUE POSITIVES — rule MUST fire on these ──────────────────
+# Test results from accuracy run: undefined/undefined caught
+
+# TP-1: JWT parsing with local key without audience validation
+# Accuracy result: N/A
+import jwt
+
+def parse_jwt_local_key(token_string, public_key):
+# ruleid: autogen-jwt-audience-validation-bypass-ghsa-g962-2j28-3cg9
+    return jwt.decode(token_string, public_key, algorithms=['RS256'])
+
+# TP-2: JWT parsing with HMAC secret without audience validation
+# Accuracy result: N/A
+import jwt
+
+def parse_jwt_hmac(token_string, hmac_secret):
+# ruleid: autogen-jwt-audience-validation-bypass-ghsa-g962-2j28-3cg9
+    return jwt.decode(token_string, hmac_secret, algorithms=['HS256'])
+
+# ── FALSE POSITIVES — rule MUST NOT fire on these ─────────────
+# Test results: NaN/undefined clean
+
+# FP-1: JWT parsing with proper audience validation
+# Accuracy result: N/A
+# ok: import jwt
+# ok: 
+# ok: def parse_jwt_with_audience(token_string, public_key, audience):
+# ok:     return jwt.decode(token_string, public_key, algorithms=['RS256'], audience=audience)
+
+# FP-2: JWKS-based JWT parsing with audience validation
+# Accuracy result: N/A
+# ok: import jwt
+# ok: 
+# ok: def parse_jwt_jwks(token_string, jwks_client, audience):
+# ok:     signing_key = jwks_client.get_signing_key_from_jwt(token_string)
+# ok:     return jwt.decode(token_string, signing_key.key, algorithms=['RS256'], audience=audience)
+
+# ── EDGE CASES — informational, review manually ────────────────
+
+# EDGE-1: JWT parsing with conditional audience validation - vulnerable when use_audience=False → N/A
+# import jwt
+# 
+# def parse_jwt_conditional(token_string, key, use_audience=False, audience=None):
+#     if use_audience and audience:
+#         return jwt.decode(token_string, key, algorithms=['RS256'], audience=audience)
+#     return jwt.decode(token_string, key, algorithms=['RS256'])
+
+# ── ACCURACY SUMMARY ───────────────────────────────────────────
+# Grade:   F 🔴
+# Score:   0/100
+# TP rate: 0% (undefined/undefined)
+# FP rate: 0% (undefined/undefined false alarms)
